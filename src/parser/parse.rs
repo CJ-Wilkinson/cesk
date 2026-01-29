@@ -22,7 +22,7 @@ enum Value {
 }
 
 /// # Expressions
-/// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label 
+/// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
 ///     | fn call | []
 #[derive(Debug, Clone)]
 enum Expr<'src> {
@@ -100,7 +100,7 @@ pub fn alloc() -> Address {
 struct Address;
 
 enum Kont<'src> {
-        DeclK(Type, &'src str, &'src Stmt<'src>, &'src Kont<'src>),
+    DeclK(Type, &'src str, &'src Stmt<'src>, &'src Kont<'src>),
 }
 
 struct Configuration<'src> {
@@ -125,20 +125,20 @@ impl<'src> Configuration<'src> {
             },
             Control::S(stmt @ Stmt::Decl(typ, name, Some(init))) => {
                 todo!()
-                    // Self {
-                    // 	c: Control::E(init),
-                    // 	e: self.e,
-                    // 	s: self.s,
-                    // 	k: Kont::DeclK(typ, name.name, successor_lookup(stmt), self.k),
-                    // }
-                    // let addr = alloc();
-                    // Self {
-                    // 	c: successor_lookup(self.c),
-                    // 	e: self.e.clone().insert(name.name, addr),
-                    // 	s: self.s.clone().insert(addr, init),
-                    // 	k: self.k,
-                    // }
-            },
+                // Self {
+                // 	c: Control::E(init),
+                // 	e: self.e,
+                // 	s: self.s,
+                // 	k: Kont::DeclK(typ, name.name, successor_lookup(stmt), self.k),
+                // }
+                // let addr = alloc();
+                // Self {
+                // 	c: successor_lookup(self.c),
+                // 	e: self.e.clone().insert(name.name, addr),
+                // 	s: self.s.clone().insert(addr, init),
+                // 	k: self.k,
+                // }
+            }
             Control::S(Stmt::Return(Some(expr))) => todo!(),
             Control::S(Stmt::Return(None)) => todo!(),
             Control::S(Stmt::Block(stmts)) => todo!(),
@@ -146,27 +146,25 @@ impl<'src> Configuration<'src> {
             Control::S(Stmt::Break) => todo!(),
             Control::S(Stmt::Continue) => todo!(),
 
-            Control::E(e) => {
-                match e {
-                    Expr::Val(expr) => {
-                        todo!()
-                    },
-                    Expr::Neg(expr) => todo!(),
-                    Expr::Add(expr, y) => todo!(),
-                    Expr::Mult(expr, y) => todo!(),
-                    Expr::Sub(expr, y) => todo!(),
-                    Expr::Div(expr, y) => todo!(),
-                    Expr::Rem(expr, y) => todo!(),
-                    Expr::Eq(expr, y) => todo!(),
-                    Expr::Neq(expr, y) => todo!(),
-                    Expr::Lt(expr, y) => todo!(),
-                    Expr::Gt(expr, y) => todo!(),
-                    Expr::Lte(expr, y) => todo!(),
-                    Expr::Gte(expr, y) => todo!(),
-                    Expr::Var(name) => todo!(),
-                    Expr::Call(name, exprs) => todo!(),
-                    Expr::Array(exprs) => todo!(),
+            Control::E(e) => match e {
+                Expr::Val(expr) => {
+                    todo!()
                 }
+                Expr::Neg(expr) => todo!(),
+                Expr::Add(expr, y) => todo!(),
+                Expr::Mult(expr, y) => todo!(),
+                Expr::Sub(expr, y) => todo!(),
+                Expr::Div(expr, y) => todo!(),
+                Expr::Rem(expr, y) => todo!(),
+                Expr::Eq(expr, y) => todo!(),
+                Expr::Neq(expr, y) => todo!(),
+                Expr::Lt(expr, y) => todo!(),
+                Expr::Gt(expr, y) => todo!(),
+                Expr::Lte(expr, y) => todo!(),
+                Expr::Gte(expr, y) => todo!(),
+                Expr::Var(name) => todo!(),
+                Expr::Call(name, exprs) => todo!(),
+                Expr::Array(exprs) => todo!(),
             },
         }
     }
