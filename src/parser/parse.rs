@@ -1,5 +1,9 @@
 use chumsky::prelude::Parser;
 use std::collections::HashMap;
+use std::rc::Rc;
+
+type Env<'src> = HashMap<&'src str, &'src Address>;
+type Store<'src> = HashMap<Address, &'src Value>;
 
 #[derive(Debug, Clone)]
 struct Name<'src> {
@@ -9,8 +13,8 @@ struct Name<'src> {
 /// The control can be either an expression or a statement
 #[derive(Clone)]
 enum Control<'src> {
-    E(Expr<'src>),
-    S(Stmt<'src>),
+    E(&'src Expr<'src>),
+    S(&'src Stmt<'src>),
 }
 
 #[derive(Debug, Clone)]
@@ -89,7 +93,7 @@ pub fn fun_lookup(name: &str) -> Fun {
 }
 
 // pub fn successor_lookup<'src>(stmt: &'src Stmt) -> &'src Stmt<'src> {
-pub fn successor_lookup<'src>(stmt: &'src Control) -> &'src Control<'src> {
+pub fn successor_lookup<'src>(stmt: &'src Stmt<'src>) -> &'src Stmt<'src> {
     todo!()
 }
 
@@ -97,19 +101,25 @@ pub fn alloc() -> Address {
     todo!()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Address;
 
 enum Kont<'src> {
-    DeclK(Type, &'src str, &'src Stmt<'src>, &'src Kont<'src>),
+    DeclK(
+        Rc<Env<'src>>,
+        Type,
+        &'src str,
+        &'src Control<'src>,
+        Rc<Kont<'src>>,
+    ),
 }
 
 struct Configuration<'src> {
     c: &'src Control<'src>,
-    e: HashMap<&'src str, &'src Address>,
-    s: HashMap<&'src Address, &'src Value>,
-    k: &'src Kont<'src>,
+    e: Rc<Env<'src>>,
+    s: Rc<Store<'src>>,
+    k: Rc<Kont<'src>>,
 }
-
 
 impl<'src> Configuration<'src> {
     pub fn next(&self) -> Self {
@@ -117,28 +127,24 @@ impl<'src> Configuration<'src> {
             Control::S(Stmt::If(condition, t, f)) => todo!(),
             Control::S(Stmt::Assign(l, r)) => todo!(),
             Control::S(Stmt::ExprStmt(expr)) => todo!(),
-            Control::S(Stmt::Decl(typ, name, None)) => Self {
-                c: successor_lookup(self.c), // &Control::S(successor_lookup(stmt)),
+            Control::S(stmt @ Stmt::Decl(typ, name, None)) => Self {
+                c: &Control::S(successor_lookup(stmt)),
                 e: self.e.clone(),
                 s: self.s.clone(),
                 k: self.k,
             },
-            Control::S(stmt @ Stmt::Decl(typ, name, Some(init))) => {
-                todo!()
-                // Self {
-                // 	c: Control::E(init),
-                // 	e: self.e,
-                // 	s: self.s,
-                // 	k: Kont::DeclK(typ, name.name, successor_lookup(stmt), self.k),
-                // }
-                // let addr = alloc();
-                // Self {
-                // 	c: successor_lookup(self.c),
-                // 	e: self.e.clone().insert(name.name, addr),
-                // 	s: self.s.clone().insert(addr, init),
-                // 	k: self.k,
-                // }
-            }
+            Control::S(stmt @ Stmt::Decl(typ, name, Some(init))) => Self {
+                c: &Control::E(init),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: Rc::new(Kont::DeclK(
+                    self.e.clone(),
+                    typ,
+                    name,
+                    &Control::S(successor_lookup(stmt)),
+                    self.k.clone(),
+                )),
+            },
             Control::S(Stmt::Return(Some(expr))) => todo!(),
             Control::S(Stmt::Return(None)) => todo!(),
             Control::S(Stmt::Block(stmts)) => todo!(),
@@ -147,9 +153,7 @@ impl<'src> Configuration<'src> {
             Control::S(Stmt::Continue) => todo!(),
 
             Control::E(e) => match e {
-                Expr::Val(expr) => {
-                    todo!()
-                }
+                Expr::Val(v) => self.invoke_kont(v),
                 Expr::Neg(expr) => todo!(),
                 Expr::Add(expr, y) => todo!(),
                 Expr::Mult(expr, y) => todo!(),
@@ -168,13 +172,30 @@ impl<'src> Configuration<'src> {
             },
         }
     }
+
+    fn invoke_kont(&'src self, v: &'src Value) -> Self {
+        match self.k {
+            Kont::DeclK(e, t, n, s, k) => {
+                let addr = alloc();
+                e.insert(n, &addr);
+                let s_prime = self.s.clone();
+                s_prime.insert(addr, v);
+                Self {
+                    c: s,
+                    e: e,
+                    s: s_prime,
+                    k: k,
+                }
+            }
+        }
+    }
 }
 
 /*
-   pub fn parser<'src>() -> impl Parser<'src, '&src str, Program<'src> {
-   todo!()
-   }
-   */
+pub fn parser<'src>() -> impl Parser<'src, '&src str, Program<'src> {
+todo!()
+}
+*/
 
 pub fn parse(filename: &str) {
     let src = std::fs::read_to_string(filename).unwrap();
