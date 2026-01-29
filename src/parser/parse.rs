@@ -7,13 +7,21 @@ struct Name<'src> {
 }
 
 enum Control<'src> {
-	E(Expr<'src>),
-	S(Stmt<'src>),
+    E(Expr<'src>),
+    S(Stmt<'src>),
+}
+
+#[derive(Debug)]
+enum Value {
+    IntV(i32),
+    BoolV(bool),
+    VoidV,
+    ArrayV(Vec<Value>),
 }
 
 #[derive(Debug)]
 enum Expr<'src> {
-    Num(i32),
+    Val(Value),
 
     Neg(Box<Expr<'src>>),
     Add(Box<Expr<'src>>, Box<Expr<'src>>),
@@ -36,10 +44,10 @@ enum Expr<'src> {
 
 #[derive(Debug)]
 enum Type {
-    Int,
-    Bool,
-    Void,
-    Array(Box<Type>),
+    IntT,
+    BoolT,
+    VoidT,
+    ArrayT(Box<Type>),
 }
 
 #[derive(Debug)]
@@ -65,71 +73,67 @@ struct Program<'src> {
     funs: Vec<Fun<'src>>,
 }
 
-
 pub fn fun_lookup(name: &str) -> Fun {
-	todo!()
+    todo!()
 }
 
 pub fn successor_lookup(stmt: &Stmt) -> &Stmt {
-	todo!()
+    todo!()
 }
 
 pub fn alloc() -> Address {
-	todo!()
+    todo!()
 }
 
 struct Address;
 
-struct Value;
-
 enum Kont<'src> {
-	DeclK(Type, &'src str, &'src Stmt<'src>, &'src Kont),
+    DeclK(Type, &'src str, &'src Stmt<'src>, &'src Kont),
 }
 
 struct Configuration<'src> {
-	c: &'src Control<'src>,
-	e: HashMap<&'src str, &'src Address>,
-	s: HashMap<&'src Address, &'src Value>,
-	k: &'src Kont,
+    c: &'src Control<'src>,
+    e: HashMap<&'src str, &'src Address>,
+    s: HashMap<&'src Address, &'src Value>,
+    k: &'src Kont,
 }
 
 impl<'src> Configuration<'src> {
-	pub fn next(&self) -> Self {
-		match self.c {
-			Control::S(Stmt::If(condition, t, f)) => todo!(),
-			Control::S(Stmt::Assign(l, r)) => todo!(),
-			Control::S(Stmt::ExprStmt(expr)) => todo!(),
-			Control::S(Stmt::Decl(typ, name, None)) => Self {
-				c: successor_lookup(self.c),
-				e: self.e.clone(),
-				s: self.s,
-				k: self.k,
-			},
-			Control::S(stmt @ Stmt::Decl(typ, name, Some(init))) => {
-				Self {
-					c: Control::E(init),
-					e: self.e,
-					s: self.s,
-					k: Kont::DeclK(typ, name.name, successor_lookup(stmt), self.k),
-				}
-			// let addr = alloc();
-			// Self {
-			// 	c: successor_lookup(self.c),
-			// 	e: self.e.clone().insert(name.name, addr),
-			// 	s: self.s.clone().insert(addr, init),
-			// 	k: self.k,
-			// }
-			},
-			Control::S(Stmt::Return(Some(expr))) => todo!(),
-			Control::S(Stmt::Return(None)) => todo!(),
-			Control::S(Stmt::Block(stmts)) => todo!(),
-			Control::S(Stmt::While(condition, stmt)) => todo!(),
-			Control::S(Stmt::Break) => todo!(),
-			Control::S(Stmt::Continue) => todo!(),
-		}
-	}
+    pub fn next(&self) -> Self {
+        match self.c {
+            Control::S(Stmt::If(condition, t, f)) => todo!(),
+            Control::S(Stmt::Assign(l, r)) => todo!(),
+            Control::S(Stmt::ExprStmt(expr)) => todo!(),
+            Control::S(Stmt::Decl(typ, name, None)) => Self {
+                c: successor_lookup(self.c),
+                e: self.e.clone(),
+                s: self.s,
+                k: self.k,
+            },
+            Control::S(stmt @ Stmt::Decl(typ, name, Some(init))) => {
+                Self {
+                    c: Control::E(init),
+                    e: self.e,
+                    s: self.s,
+                    k: Kont::DeclK(typ, name.name, successor_lookup(stmt), self.k),
+                }
+                // let addr = alloc();
+                // Self {
+                // 	c: successor_lookup(self.c),
+                // 	e: self.e.clone().insert(name.name, addr),
+                // 	s: self.s.clone().insert(addr, init),
+                // 	k: self.k,
+                // }
+            }
+            Control::S(Stmt::Return(Some(expr))) => todo!(),
+            Control::S(Stmt::Return(None)) => todo!(),
+            Control::S(Stmt::Block(stmts)) => todo!(),
+            Control::S(Stmt::While(condition, stmt)) => todo!(),
+            Control::S(Stmt::Break) => todo!(),
+            Control::S(Stmt::Continue) => todo!(),
+        }
+    }
 }
-
 
 /*
 pub fn parser<'src>() -> impl Parser<'src, '&src str, Program<'src> {
