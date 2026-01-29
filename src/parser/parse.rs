@@ -105,11 +105,16 @@ pub fn alloc() -> Address {
 struct Address;
 
 enum Kont<'src> {
+	Mt,
+	// Kont for Declaration
     DeclK(
+    	// Environment for Kont
         Rc<Env<'src>>,
         Type,
         &'src str,
+        // Control for Kont
         &'src Control<'src>,
+        // Nested Kont
         Rc<Kont<'src>>,
     ),
 }
@@ -155,7 +160,12 @@ impl<'src> Configuration<'src> {
             Control::E(e) => match e {
                 Expr::Val(v) => self.invoke_kont(v),
                 Expr::Neg(expr) => todo!(),
-                Expr::Add(expr, y) => todo!(),
+                Expr::Add(IntV(left), IntV(right)) => Self {
+                	c: Control::E(Expr::Val(Value::IntV(left + right))),
+                	e: self.e.clone(),
+                	s: self.s.clont(),
+                	k: self.k.clone(),
+                }
                 Expr::Mult(expr, y) => todo!(),
                 Expr::Sub(expr, y) => todo!(),
                 Expr::Div(expr, y) => todo!(),
@@ -169,6 +179,7 @@ impl<'src> Configuration<'src> {
                 Expr::Var(name) => todo!(),
                 Expr::Call(name, exprs) => todo!(),
                 Expr::Array(exprs) => todo!(),
+                
             },
         }
     }
