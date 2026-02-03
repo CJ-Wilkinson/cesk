@@ -5,6 +5,7 @@ pub fn parser<'src>() -> impl Parser<'src, &'src str, Program<'src>> {
     let typ = choice((
         text::ascii::keyword("int").padded().to(Type::IntT),
         text::ascii::keyword("bool").padded().to(Type::BoolT),
+        text::ascii::keyword("void").padded().to(Type::VoidT),
     ));
 
     let int = text::int(10)
