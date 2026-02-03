@@ -46,8 +46,9 @@ pub enum Type {
 }
 
 /// # Function
-/// a function consists of a name, a list of args, and a body statement
+/// a function consists of a return type, a name, a list of args, and a body statement
 pub struct Fun<'src> {
+    pub rtype: Type,
     pub name: Name<'src>,
     pub args: Vec<(Type, Name<'src>)>,
     pub body: Stmt<'src>,
