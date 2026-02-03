@@ -1,19 +1,13 @@
-use chumsky::prelude::Parser;
+use crate::ast::{Expr, Fun, Name, Stmt, Type, Value};
 use std::collections::HashMap;
 use std::rc::Rc;
 
 type Env<'src> = HashMap<&'src str, i32>;
 type Store<'src> = HashMap<i32, &'src Value>;
 
-// Why though? Just &str might work?
-#[derive(Debug, Clone)]
-struct Name<'src> {
-    name: &'src str,
-}
-
 /// The control can be either an expression or a statement
 #[derive(Debug, Clone)]
-enum Control<'src> {
+pub enum Control<'src> {
     // For external AST references
     AstExpr(&'src Expr<'src>),
     // For external AST references
@@ -24,83 +18,12 @@ enum Control<'src> {
     Stmt(Stmt<'src>),
 }
 
-#[derive(Debug, Clone)]
-enum Value {
-    IntV(i32),
-    BoolV(bool),
-    VoidV,
-    ArrayV(Vec<Value>),
-}
-
-/// # Expressions
-/// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
-///     | fn call | []
-#[derive(Debug, Clone)]
-enum Expr<'src> {
-    Val(Value),
-
-    Neg(Box<Expr<'src>>),
-    Add(Box<Expr<'src>>, Box<Expr<'src>>),
-    Mult(Box<Expr<'src>>, Box<Expr<'src>>),
-    Sub(Box<Expr<'src>>, Box<Expr<'src>>),
-    Div(Box<Expr<'src>>, Box<Expr<'src>>),
-    Rem(Box<Expr<'src>>, Box<Expr<'src>>),
-    Eq(Box<Expr<'src>>, Box<Expr<'src>>),
-    Neq(Box<Expr<'src>>, Box<Expr<'src>>),
-    Lt(Box<Expr<'src>>, Box<Expr<'src>>),
-    Gt(Box<Expr<'src>>, Box<Expr<'src>>),
-    Lte(Box<Expr<'src>>, Box<Expr<'src>>),
-    Gte(Box<Expr<'src>>, Box<Expr<'src>>),
-
-    Var(Box<Name<'src>>),
-
-    Call(Box<Name<'src>>, Vec<Expr<'src>>),
-    Array(Vec<Expr<'src>>),
-}
-
-#[derive(Debug, Clone)]
-enum Type {
-    IntT,
-    BoolT,
-    VoidT,
-    ArrayT(Box<Type>),
-}
-
-/// # Statements
-/// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
-///     | continue
-
-#[derive(Debug, Clone)]
-enum Stmt<'src> {
-    If(Box<Expr<'src>>, Box<Stmt<'src>>, Option<Box<Stmt<'src>>>),
-    Assign(Box<Expr<'src>>, Box<Expr<'src>>),
-    ExprStmt(Box<Expr<'src>>),
-    Decl(Type, Box<Name<'src>>, Option<Box<Expr<'src>>>),
-    Return(Option<Box<Expr<'src>>>),
-    Block(Vec<Stmt<'src>>),
-    While(Box<Expr<'src>>, Box<Stmt<'src>>),
-    Break,
-    Continue,
-}
-
-/// # Function
-/// a function consists of a name, a list of args, and a body statement
-struct Fun<'src> {
-    name: Name<'src>,
-    args: Vec<(Type, Name<'src>)>,
-    body: Stmt<'src>,
-}
-
-struct Program<'src> {
-    funs: Vec<Fun<'src>>,
-}
-
-pub fn fun_lookup(name: &str) -> Fun {
+pub fn fun_lookup<'src>(_name: &'src str) -> Fun<'src> {
     todo!()
 }
 
 // pub fn successor_lookup<'src>(stmt: &'src Stmt) -> &'src Stmt<'src> {
-pub fn successor_lookup<'src>(stmt: &'src Stmt<'src>) -> &'src Stmt<'src> {
+pub fn successor_lookup<'src>(_stmt: &'src Stmt<'src>) -> &'src Stmt<'src> {
     &Stmt::Break
 }
 
@@ -112,11 +35,11 @@ pub fn alloc() -> i32 {
 //struct Address;
 
 #[derive(Debug)]
-enum Kont<'src> {
-	Mt,
-	// Kont for Declaration
+pub enum Kont<'src> {
+    Mt,
+    // Kont for Declaration
     DeclK(
-    	// Environment for Kont
+        // Environment for Kont
         Rc<Env<'src>>,
         Type,
         &'src str,
@@ -166,10 +89,10 @@ impl<'src> Configuration<'src> {
                         self.k.clone(),
                     )),
                 }
-            },
-            Control::AstStmt(Stmt::Assign(l, r)) => todo!(),
-            Control::AstStmt(Stmt::ExprStmt(expr)) => todo!(),
-            Control::AstStmt(stmt @ Stmt::Decl(typ, name, None)) => Self {
+            }
+            Control::AstStmt(Stmt::Assign(_l, _r)) => todo!(),
+            Control::AstStmt(Stmt::ExprStmt(_expr)) => todo!(),
+            Control::AstStmt(stmt @ Stmt::Decl(_typ, _name, None)) => Self {
                 c: Control::AstStmt(successor_lookup(stmt)),
                 e: self.e.clone(),
                 s: self.s.clone(),
@@ -181,23 +104,23 @@ impl<'src> Configuration<'src> {
                 s: self.s.clone(),
                 k: Rc::new(Kont::DeclK(
                     self.e.clone(),
-                    typ.clone(),
+                    *typ.clone(),
                     name.name,
                     Control::AstStmt(successor_lookup(stmt)),
                     self.k.clone(),
                 )),
             },
-            Control::AstStmt(Stmt::Return(Some(expr))) => todo!(),
+            Control::AstStmt(Stmt::Return(Some(_expr))) => todo!(),
             Control::AstStmt(Stmt::Return(None)) => todo!(),
-            Control::AstStmt(Stmt::Block(stmts)) => todo!(),
-            Control::AstStmt(Stmt::While(condition, stmt)) => todo!(),
+            Control::AstStmt(Stmt::Block(_stmts)) => todo!(),
+            Control::AstStmt(Stmt::While(_condition, _stmt)) => todo!(),
             Control::AstStmt(Stmt::Break) => todo!(),
             Control::AstStmt(Stmt::Continue) => todo!(),
 
             Control::AstExpr(e) => match e {
                 // only spot to invoke kont
                 Expr::Val(v) => self.invoke_kont(&v),
-                Expr::Neg(expr) => todo!(),
+                Expr::Neg(_expr) => todo!(),
                 // TODO: Add nested expressions
                 Expr::Add(left, right) => {
                     let l = match left.as_ref() {
@@ -209,26 +132,25 @@ impl<'src> Configuration<'src> {
                         _ => panic!("right of add"),
                     };
                     Self {
-                      c: Control::Expr(Expr::Val(Value::IntV(l + r))),
-                      e: self.e.clone(),
-                      s: self.s.clone(),
-                      k: self.k.clone(),
+                        c: Control::Expr(Expr::Val(Value::IntV(l + r))),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: self.k.clone(),
                     }
-                },
-                Expr::Mult(expr, y) => todo!(),
-                Expr::Sub(expr, y) => todo!(),
-                Expr::Div(expr, y) => todo!(),
-                Expr::Rem(expr, y) => todo!(),
-                Expr::Eq(expr, y) => todo!(),
-                Expr::Neq(expr, y) => todo!(),
-                Expr::Lt(expr, y) => todo!(),
-                Expr::Gt(expr, y) => todo!(),
-                Expr::Lte(expr, y) => todo!(),
-                Expr::Gte(expr, y) => todo!(),
-                Expr::Var(name) => todo!(),
-                Expr::Call(name, exprs) => todo!(),
-                Expr::Array(exprs) => todo!(),
-                
+                }
+                Expr::Mult(_expr, _y) => todo!(),
+                Expr::Sub(_expr, _y) => todo!(),
+                Expr::Div(_expr, _y) => todo!(),
+                Expr::Rem(_expr, _y) => todo!(),
+                Expr::Eq(_expr, _y) => todo!(),
+                Expr::Neq(_expr, _y) => todo!(),
+                Expr::Lt(_expr, _y) => todo!(),
+                Expr::Gt(_expr, _y) => todo!(),
+                Expr::Lte(_expr, _y) => todo!(),
+                Expr::Gte(_expr, _y) => todo!(),
+                Expr::Var(_name) => todo!(),
+                Expr::Call(_name, _exprs) => todo!(),
+                Expr::Array(_exprs) => todo!(),
             },
             _ => todo!(),
         }
@@ -236,7 +158,7 @@ impl<'src> Configuration<'src> {
 
     fn invoke_kont(&self, v: &'src Value) -> Self {
         match self.k.as_ref() {
-            Kont::DeclK(e, t, n, succ, k) => {
+            Kont::DeclK(e, _t, n, succ, k) => {
                 let addr = alloc();
                 let mut e_prime: Env = (**e).clone();
                 e_prime.insert(n, addr);
@@ -248,7 +170,7 @@ impl<'src> Configuration<'src> {
                     s: Rc::new(s_prime),
                     k: Rc::clone(k),
                 }
-            },
+            }
             _ => todo!(),
         }
     }
@@ -260,27 +182,25 @@ todo!()
 }
 */
 
-    fn it_works() {
-        let ast = Stmt::Decl(
-            Type::IntT,
-            Box::new(Name{
-                name: "CESK",
-            }),
-            Some(Box::new(Expr::Val(Value::IntV(42)))),
-        );
-        let sigma_0 = Configuration{
-            c: Control::AstStmt(&ast),
-            e: Rc::new(HashMap::new()),
-            s: Rc::new(HashMap::new()),
-            k: Rc::new(Kont::Mt),
-        };
-        let sigma_1 = sigma_0.next();
-        println!("{:?}", sigma_1);
-        let sigma_2 = sigma_1.next();
-        println!("{:?}", sigma_2);
-    }
+fn it_works() {
+    let ast = Stmt::Decl(
+        Box::new(Type::IntT),
+        Box::new(Name { name: "CESK" }),
+        Some(Box::new(Expr::Val(Value::IntV(42)))),
+    );
+    let sigma_0 = Configuration {
+        c: Control::AstStmt(&ast),
+        e: Rc::new(HashMap::new()),
+        s: Rc::new(HashMap::new()),
+        k: Rc::new(Kont::Mt),
+    };
+    let sigma_1 = sigma_0.next();
+    println!("{:?}", sigma_1);
+    let sigma_2 = sigma_1.next();
+    println!("{:?}", sigma_2);
+}
 
-pub fn parse(filename: &str) {
+pub fn parse(_filename: &str) {
     println!("Hello");
     it_works();
     //let src = std::fs::read_to_string(filename).unwrap();
@@ -298,13 +218,11 @@ mod tests {
     #[test]
     fn it_works() {
         let ast = Stmt::Decl(
-            Type::IntT,
-            Box::new(Name{
-                name: "CESK",
-            }),
+            Box::new(Type::IntT),
+            Box::new(Name { name: "CESK" }),
             Some(Box::new(Expr::Val(Value::IntV(42)))),
         );
-        let sigma_0 = Configuration{
+        let sigma_0 = Configuration {
             c: Control::AstStmt(&ast),
             e: Rc::new(HashMap::new()),
             s: Rc::new(HashMap::new()),

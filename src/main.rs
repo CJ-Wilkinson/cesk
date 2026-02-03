@@ -1,5 +1,7 @@
 use std;
 
+pub mod ast;
+pub mod conf;
 pub mod parser;
 
 pub use crate::parser::parse;
