@@ -1,9 +1,7 @@
-#[derive(Debug, Clone)]
-pub struct Name<'src> {
-    pub name: &'src str,
-}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Name(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     IntV(i32),
     BoolV(bool),
@@ -11,30 +9,65 @@ pub enum Value {
     ArrayV(Vec<Value>),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ArithBinop {
+    Add,
+    Mult,
+    Sub,
+    Div,
+    Rem,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompareBinop {
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    Lte,
+    Gte,
+}
+
+impl ArithBinop {
+    pub fn call(&self, lhs: i32, rhs: i32) -> i32 {
+        match self {
+            Self::Add => lhs + rhs,
+            Self::Sub => lhs - rhs,
+            Self::Mult => lhs * rhs,
+            Self::Div => lhs / rhs,
+            Self::Rem => lhs % rhs,
+        }
+    }
+}
+
+impl CompareBinop {
+    pub fn call(&self, lhs: i32, rhs: i32) -> bool {
+        match self {
+            Self::Eq => lhs == rhs,
+            Self::Neq => lhs != rhs,
+            Self::Lt => lhs < rhs,
+            Self::Gt => lhs > rhs,
+            Self::Lte => lhs <= rhs,
+            Self::Gte => lhs >= rhs,
+        }
+    }
+}
+
 /// # Expressions
 /// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
 ///     | fn call | []
-#[derive(Debug, Clone)]
-pub enum Expr<'src> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Expr {
     Val(Value),
 
-    Neg(Box<Expr<'src>>),
-    Add(Box<Expr<'src>>, Box<Expr<'src>>),
-    Mult(Box<Expr<'src>>, Box<Expr<'src>>),
-    Sub(Box<Expr<'src>>, Box<Expr<'src>>),
-    Div(Box<Expr<'src>>, Box<Expr<'src>>),
-    Rem(Box<Expr<'src>>, Box<Expr<'src>>),
-    Eq(Box<Expr<'src>>, Box<Expr<'src>>),
-    Neq(Box<Expr<'src>>, Box<Expr<'src>>),
-    Lt(Box<Expr<'src>>, Box<Expr<'src>>),
-    Gt(Box<Expr<'src>>, Box<Expr<'src>>),
-    Lte(Box<Expr<'src>>, Box<Expr<'src>>),
-    Gte(Box<Expr<'src>>, Box<Expr<'src>>),
+    Neg(Box<Expr>),
+    ArithBinop(Box<Expr>, ArithBinop, Box<Expr>),
+    CompareBinop(Box<Expr>, CompareBinop, Box<Expr>),
 
-    Var(Box<Name<'src>>),
+    Var(Name),
 
-    Call(Box<Name<'src>>, Vec<Expr<'src>>),
-    Array(Vec<Expr<'src>>),
+    Call(Name, Vec<Expr>),
+    Array(Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]
@@ -45,32 +78,34 @@ pub enum Type {
     ArrayT(Box<Type>),
 }
 
-/// # Function
-/// a function consists of a return type, a name, a list of args, and a body statement
-pub struct Fun<'src> {
-    pub rtype: Type,
-    pub name: Name<'src>,
-    pub args: Vec<(Type, Name<'src>)>,
-    pub body: Stmt<'src>,
-}
-
-pub struct Program<'src> {
-    pub funs: Vec<Fun<'src>>,
-}
-
 /// # Statements
 /// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
 ///     | continue
 
 #[derive(Debug, Clone)]
-pub enum Stmt<'src> {
-    If(Box<Expr<'src>>, Box<Stmt<'src>>, Option<Box<Stmt<'src>>>),
-    Assign(Box<Expr<'src>>, Box<Expr<'src>>),
-    ExprStmt(Box<Expr<'src>>),
-    Decl(Box<Type>, Box<Name<'src>>, Option<Box<Expr<'src>>>),
-    Return(Option<Box<Expr<'src>>>),
-    Block(Vec<Stmt<'src>>),
-    While(Box<Expr<'src>>, Box<Stmt<'src>>),
+pub enum Stmt {
+    If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
+    Assign(Box<Expr>, Box<Expr>),
+    ExprStmt(Expr),
+    Decl(Box<Type>, Name, Option<Box<Expr>>),
+    Return(Option<Box<Expr>>),
+    Block(Vec<Stmt>),
+    While(Box<Expr>, Box<Stmt>),
     Break,
     Continue,
+}
+
+/// # Function
+/// a function consists of a return type, a name, a list of args, and a body statement
+#[derive(Debug, Clone)]
+pub struct Fun {
+    pub rtype: Type,
+    pub name: Name,
+    pub args: Vec<(Type, Name)>,
+    pub body: Stmt,
+}
+
+#[derive(Debug, Clone)]
+pub struct Program {
+    pub funs: Vec<Fun>,
 }

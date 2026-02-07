@@ -2,28 +2,29 @@ use crate::ast::{Expr, Fun, Name, Stmt, Type, Value};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-type Env<'src> = HashMap<&'src str, i32>;
+// TODO see if this can be turned back into &str
+type Env = HashMap<String, i32>;
 type Store<'src> = HashMap<i32, &'src Value>;
 
 /// The control can be either an expression or a statement
 #[derive(Debug, Clone)]
 pub enum Control<'src> {
     // For external AST references
-    AstExpr(&'src Expr<'src>),
+    AstExpr(&'src Expr),
     // For external AST references
-    AstStmt(&'src Stmt<'src>),
+    AstStmt(&'src Stmt),
     // For evaluated expressions, move ownership into Control
-    Expr(Expr<'src>),
+    Expr(Expr),
     // need this?
-    Stmt(Stmt<'src>),
+    Stmt(Stmt),
 }
 
-pub fn fun_lookup<'src>(_name: &'src str) -> Fun<'src> {
+pub fn fun_lookup<'src>(_name: &'src str) -> Fun {
     todo!()
 }
 
-// pub fn successor_lookup<'src>(stmt: &'src Stmt) -> &'src Stmt<'src> {
-pub fn successor_lookup<'src>(_stmt: &'src Stmt<'src>) -> &'src Stmt<'src> {
+// pub fn successor_lookup<'src>(stmt: &'src Stmt) -> &'src Stmt {
+pub fn successor_lookup<'src>(_stmt: &'src Stmt) -> &'src Stmt {
     &Stmt::Break
 }
 
@@ -40,9 +41,9 @@ pub enum Kont<'src> {
     // Kont for Declaration
     DeclK(
         // Environment for Kont
-        Rc<Env<'src>>,
+        Rc<Env>,
         Type,
-        &'src str,
+        Name,
         // Control for Kont
         Control<'src>,
         // Nested Kont
@@ -50,7 +51,7 @@ pub enum Kont<'src> {
     ),
     IfK(
         // Environment
-        Rc<Env<'src>>,
+        Rc<Env>,
         // true branch
         Control<'src>,
         // false branch
@@ -65,7 +66,7 @@ pub enum Kont<'src> {
 #[derive(Debug)]
 struct Configuration<'src> {
     c: Control<'src>,
-    e: Rc<Env<'src>>,
+    e: Rc<Env>,
     s: Rc<Store<'src>>,
     k: Rc<Kont<'src>>,
 }
@@ -105,7 +106,7 @@ impl<'src> Configuration<'src> {
                 k: Rc::new(Kont::DeclK(
                     self.e.clone(),
                     *typ.clone(),
-                    name.name,
+                    name.clone(),
                     Control::AstStmt(successor_lookup(stmt)),
                     self.k.clone(),
                 )),
@@ -122,32 +123,24 @@ impl<'src> Configuration<'src> {
                 Expr::Val(v) => self.invoke_kont(&v),
                 Expr::Neg(_expr) => todo!(),
                 // TODO: Add nested expressions
-                Expr::Add(left, right) => {
+                Expr::ArithBinop(left, op, right) => {
+                    // TODO let's clean this up a bit
                     let l = match left.as_ref() {
-                        Expr::Val(Value::IntV(x)) => x,
-                        _ => panic!("left of add"),
+                        Expr::Val(Value::IntV(x)) => *x,
+                        _ => panic!("left of binop"),
                     };
                     let r = match right.as_ref() {
-                        Expr::Val(Value::IntV(x)) => x,
-                        _ => panic!("right of add"),
+                        Expr::Val(Value::IntV(x)) => *x,
+                        _ => panic!("right of binop"),
                     };
                     Self {
-                        c: Control::Expr(Expr::Val(Value::IntV(l + r))),
+                        c: Control::Expr(Expr::Val(Value::IntV(op.call(l, r)))),
                         e: self.e.clone(),
                         s: self.s.clone(),
                         k: self.k.clone(),
                     }
                 }
-                Expr::Mult(_expr, _y) => todo!(),
-                Expr::Sub(_expr, _y) => todo!(),
-                Expr::Div(_expr, _y) => todo!(),
-                Expr::Rem(_expr, _y) => todo!(),
-                Expr::Eq(_expr, _y) => todo!(),
-                Expr::Neq(_expr, _y) => todo!(),
-                Expr::Lt(_expr, _y) => todo!(),
-                Expr::Gt(_expr, _y) => todo!(),
-                Expr::Lte(_expr, _y) => todo!(),
-                Expr::Gte(_expr, _y) => todo!(),
+                Expr::CompareBinop(_left, _op, _right) => todo!(),
                 Expr::Var(_name) => todo!(),
                 Expr::Call(_name, _exprs) => todo!(),
                 Expr::Array(_exprs) => todo!(),
@@ -158,10 +151,10 @@ impl<'src> Configuration<'src> {
 
     fn invoke_kont(&self, v: &'src Value) -> Self {
         match self.k.as_ref() {
-            Kont::DeclK(e, _t, n, succ, k) => {
+            Kont::DeclK(e, _t, Name(n), succ, k) => {
                 let addr = alloc();
                 let mut e_prime: Env = (**e).clone();
-                e_prime.insert(n, addr);
+                e_prime.insert(n.to_string(), addr);
                 let mut s_prime = (*self.s).clone();
                 s_prime.insert(addr, v);
                 Self {
@@ -185,7 +178,7 @@ todo!()
 fn it_works() {
     let ast = Stmt::Decl(
         Box::new(Type::IntT),
-        Box::new(Name { name: "CESK" }),
+        Name("CESK".to_string()),
         Some(Box::new(Expr::Val(Value::IntV(42)))),
     );
     let sigma_0 = Configuration {
@@ -219,7 +212,7 @@ mod tests {
     fn it_works() {
         let ast = Stmt::Decl(
             Box::new(Type::IntT),
-            Box::new(Name { name: "CESK" }),
+            Name("CESK".to_string()),
             Some(Box::new(Expr::Val(Value::IntV(42)))),
         );
         let sigma_0 = Configuration {
