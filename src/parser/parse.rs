@@ -47,7 +47,7 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> {
     expr
 }
 
-pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> {
+pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> {
     // TODO other Stmt variants
     choice((
         exp_parser()
@@ -60,7 +60,7 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> {
     ))
 }
 
-pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
+pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
     typ_parser()
         .then(ident_parser())
         .then_ignore(just('(').padded())
@@ -75,7 +75,7 @@ pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
             stmt_parser()
                 .repeated()
                 .collect::<Vec<_>>()
-                .map(|b| Stmt::Block(b)),
+                .map(|b| Stmt::make_block(b)),
         )
         .then_ignore(just('}').padded())
         .map(|(((rtype, name), args), body)| Fun {
@@ -86,7 +86,7 @@ pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
         })
 }
 
-pub fn program_parser<'src>() -> impl Parser<'src, &'src str, Program> {
+pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program<'tree>> {
     fun_parser()
         .repeated()
         .collect::<Vec<_>>()

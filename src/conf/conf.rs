@@ -3,28 +3,28 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 // TODO see if this can be turned back into &str
-type Env<'src> = HashMap<&'src str, i32>;
-type Store<'src> = HashMap<i32, &'src Value>;
+type Env<'tree> = HashMap<&'tree str, i32>;
+type Store<'tree> = HashMap<i32, &'tree Value>;
 
 /// The control can be either an expression or a statement
 #[derive(Debug, Clone)]
-pub enum Control<'src> {
+pub enum Control<'tree> {
     // For external AST references
-    AstExpr(&'src Expr),
+    AstExpr(&'tree Expr),
     // For external AST references
-    AstStmt(&'src Stmt),
+    AstStmt(&'tree Stmt<'tree>),
     // For evaluated expressions, move ownership into Control
     Expr(Expr),
     // need this?
-    Stmt(Stmt),
+    Stmt(Stmt<'tree>),
 }
 
-pub fn fun_lookup<'src>(_name: &'src str) -> Fun {
+pub fn fun_lookup<'tree>(_name: &'tree str) -> Fun<'tree> {
     todo!()
 }
 
-// pub fn successor_lookup<'src>(stmt: &'src Stmt) -> &'src Stmt {
-pub fn successor_lookup<'src>(_stmt: &'src Stmt) -> &'src Stmt {
+// pub fn successor_lookup<'tree>(stmt: &'tree Stmt) -> &'tree Stmt {
+pub fn successor_lookup<'tree>(_stmt: &'tree Stmt<'tree>) -> &'tree Stmt<'tree> {
     &Stmt::Break
 }
 
@@ -36,43 +36,43 @@ pub fn alloc() -> i32 {
 //struct Address;
 
 #[derive(Debug)]
-pub enum Kont<'src> {
+pub enum Kont<'tree> {
     Mt,
     // Kont for Declaration
     DeclK(
         // Environment for Kont
-        Rc<Env<'src>>,
+        Rc<Env<'tree>>,
         Type,
         Name,
         // Control for Kont
-        Control<'src>,
+        Control<'tree>,
         // Nested Kont
-        Rc<Kont<'src>>,
+        Rc<Kont<'tree>>,
     ),
     IfK(
         // Environment
-        Rc<Env<'src>>,
+        Rc<Env<'tree>>,
         // true branch
-        Control<'src>,
+        Control<'tree>,
         // false branch
-        Option<Control<'src>>,
+        Option<Control<'tree>>,
         // Alternate version from Stmt::If->False branch
-        // Option<Box<Stmt<'src>>>
+        // Option<Box<Stmt<'tree>>>
         // Kont
-        Rc<Kont<'src>>,
+        Rc<Kont<'tree>>,
     ),
 }
 
 #[derive(Debug)]
-struct Configuration<'src> {
-    c: Control<'src>,
-    e: Rc<Env<'src>>,
-    s: Rc<Store<'src>>,
-    k: Rc<Kont<'src>>,
+struct Configuration<'tree> {
+    c: Control<'tree>,
+    e: Rc<Env<'tree>>,
+    s: Rc<Store<'tree>>,
+    k: Rc<Kont<'tree>>,
 }
 
-impl<'src> Configuration<'src> {
-    pub fn next(&'src self) -> Self {
+impl<'tree> Configuration<'tree> {
+    pub fn next(&'tree self) -> Self {
         match self.c {
             Control::AstStmt(Stmt::If(condition, true_branch, false_branch)) => {
                 Self {
@@ -113,7 +113,7 @@ impl<'src> Configuration<'src> {
             },
             Control::AstStmt(Stmt::Return(Some(_expr))) => todo!(),
             Control::AstStmt(Stmt::Return(None)) => todo!(),
-            Control::AstStmt(Stmt::Block(_stmts)) => todo!(),
+            Control::AstStmt(Stmt::Block(_stmts, _successors)) => todo!(),
             Control::AstStmt(Stmt::While(_condition, _stmt)) => todo!(),
             Control::AstStmt(Stmt::Break) => todo!(),
             Control::AstStmt(Stmt::Continue) => todo!(),
@@ -149,7 +149,7 @@ impl<'src> Configuration<'src> {
         }
     }
 
-    fn invoke_kont(&'src self, v: &'src Value) -> Self {
+    fn invoke_kont(&'tree self, v: &'tree Value) -> Self {
         match self.k.as_ref() {
             Kont::DeclK(e, _t, Name(n), succ, k) => {
                 let addr = alloc();
@@ -168,12 +168,6 @@ impl<'src> Configuration<'src> {
         }
     }
 }
-
-/*
-pub fn parser<'src>() -> impl Parser<'src, '&src str, Program<'src> {
-todo!()
-}
-*/
 
 fn it_works() {
     let ast = Stmt::Decl(
