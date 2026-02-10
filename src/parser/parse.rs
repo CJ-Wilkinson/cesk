@@ -56,7 +56,7 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> {
         exp_parser()
             .then_ignore(just('=').padded())
             .then(exp_parser())
-            .map(|(lhs, rhs)| Stmt::Assign(Box::new(lhs), Box::new(rhs))),
+            .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
     ))
 }
 
@@ -148,8 +148,8 @@ mod tests {
     #[test]
     fn assignment() {
         if let Ok(Stmt::Assign(lhs, rhs)) = stmt_test("x = 3;") {
-            assert_eq!(*lhs, Expr::Var(Name("x".to_string())));
-            assert_eq!(*rhs, Expr::Val(Value::IntV(3)));
+            assert_eq!(lhs, Expr::Var(Name("x".to_string())));
+            assert_eq!(rhs, Expr::Val(Value::IntV(3)));
         }
     }
 

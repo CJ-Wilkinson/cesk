@@ -84,13 +84,13 @@ pub enum Type {
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
-    Assign(Box<Expr>, Box<Expr>),
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
+    Assign(Expr, Expr),
     ExprStmt(Expr),
-    Decl(Box<Type>, Name, Option<Box<Expr>>),
-    Return(Option<Box<Expr>>),
+    Decl(Type, Name, Option<Expr>),
+    Return(Option<Expr>),
     Block(Vec<Stmt>),
-    While(Box<Expr>, Box<Stmt>),
+    While(Expr, Box<Stmt>),
     Break,
     Continue,
 }

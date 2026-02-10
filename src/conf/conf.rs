@@ -105,7 +105,7 @@ impl<'src> Configuration<'src> {
                 s: self.s.clone(),
                 k: Rc::new(Kont::DeclK(
                     self.e.clone(),
-                    *typ.clone(),
+                    typ.clone(),
                     name.clone(),
                     Control::AstStmt(successor_lookup(stmt)),
                     self.k.clone(),
@@ -177,9 +177,9 @@ todo!()
 
 fn it_works() {
     let ast = Stmt::Decl(
-        Box::new(Type::IntT),
+        Type::IntT,
         Name("CESK".to_string()),
-        Some(Box::new(Expr::Val(Value::IntV(42)))),
+        Some(Expr::Val(Value::IntV(42))),
     );
     let sigma_0 = Configuration {
         c: Control::AstStmt(&ast),
@@ -211,9 +211,9 @@ mod tests {
     #[test]
     fn it_works() {
         let ast = Stmt::Decl(
-            Box::new(Type::IntT),
+            Type::IntT,
             Name("CESK".to_string()),
-            Some(Box::new(Expr::Val(Value::IntV(42)))),
+            Some(Expr::Val(Value::IntV(42))),
         );
         let sigma_0 = Configuration {
             c: Control::AstStmt(&ast),
