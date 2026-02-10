@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 // TODO see if this can be turned back into &str
-type Env = HashMap<String, i32>;
+type Env<'src> = HashMap<&'src str, i32>;
 type Store<'src> = HashMap<i32, &'src Value>;
 
 /// The control can be either an expression or a statement
@@ -41,7 +41,7 @@ pub enum Kont<'src> {
     // Kont for Declaration
     DeclK(
         // Environment for Kont
-        Rc<Env>,
+        Rc<Env<'src>>,
         Type,
         Name,
         // Control for Kont
@@ -51,7 +51,7 @@ pub enum Kont<'src> {
     ),
     IfK(
         // Environment
-        Rc<Env>,
+        Rc<Env<'src>>,
         // true branch
         Control<'src>,
         // false branch
@@ -66,13 +66,13 @@ pub enum Kont<'src> {
 #[derive(Debug)]
 struct Configuration<'src> {
     c: Control<'src>,
-    e: Rc<Env>,
+    e: Rc<Env<'src>>,
     s: Rc<Store<'src>>,
     k: Rc<Kont<'src>>,
 }
 
 impl<'src> Configuration<'src> {
-    pub fn next(&self) -> Self {
+    pub fn next(&'src self) -> Self {
         match self.c {
             Control::AstStmt(Stmt::If(condition, true_branch, false_branch)) => {
                 Self {
@@ -149,12 +149,12 @@ impl<'src> Configuration<'src> {
         }
     }
 
-    fn invoke_kont(&self, v: &'src Value) -> Self {
+    fn invoke_kont(&'src self, v: &'src Value) -> Self {
         match self.k.as_ref() {
             Kont::DeclK(e, _t, Name(n), succ, k) => {
                 let addr = alloc();
                 let mut e_prime: Env = (**e).clone();
-                e_prime.insert(n.to_string(), addr);
+                e_prime.insert(n, addr);
                 let mut s_prime = (*self.s).clone();
                 s_prime.insert(addr, v);
                 Self {
