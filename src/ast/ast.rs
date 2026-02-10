@@ -84,23 +84,32 @@ pub enum Type {
 /// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
 ///     | continue
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Stmt<'tree> {
-    If(Expr, Box<Stmt<'tree>>, Option<Box<Stmt<'tree>>>),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Stmt {
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Assign(Expr, Expr),
     ExprStmt(Expr),
     Decl(Type, Name, Option<Expr>),
     Return(Option<Expr>),
-    Block(Vec<Stmt<'tree>>, HashMap<(), ()>),
+    Block(Vec<Stmt>, HashMap<usize, Option<usize>>),
     //Block(Vec<Stmt<'tree>>, HashMap<&'tree Stmt<'tree>, &'tree Stmt<'tree>>),
-    While(Expr, Box<Stmt<'tree>>),
+    While(Expr, Box<Stmt>),
     Break,
     Continue,
 }
 
-impl<'tree> Stmt<'tree> {
-    pub fn make_block(stmts: Vec<Stmt<'tree>>) -> Self {
-        Self::Block(stmts, HashMap::new())
+impl<'tree> Stmt {
+    pub fn make_block(stmts: Vec<Stmt>) -> Self {
+        let mut m = HashMap::new();
+        for i in 0..stmts.len() {
+            if i+1 >= stmts.len() {
+                m.insert(i, None);
+                break;
+            }
+            m.insert(i, Some(i+1));
+        }
+        Self::Block(stmts, m)
+        //Self::Block(stmts, HashMap::new())
         //Self::Block(stmts, stmts.iter().zip(stmts.iter().skip(1)).collect())
     }
 }
@@ -108,14 +117,37 @@ impl<'tree> Stmt<'tree> {
 /// # Function
 /// a function consists of a return type, a name, a list of args, and a body statement
 #[derive(Debug, Clone)]
-pub struct Fun<'tree> {
+pub struct Fun {
     pub rtype: Type,
     pub name: Name,
     pub args: Vec<(Type, Name)>,
-    pub body: Stmt<'tree>,
+    pub body: Stmt,
 }
 
 #[derive(Debug, Clone)]
-pub struct Program<'tree> {
-    pub funs: Vec<Fun<'tree>>,
+pub struct Program {
+    pub funs: Vec<Fun>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn make_block() {
+        let block = vec![
+            Stmt::Decl(Type::IntT, Name("x".to_string()), None),
+            Stmt::Decl(Type::IntT, Name("y".to_string()), None),
+        ];
+        let node = Stmt::make_block(block);
+        println!("Block Node: {:?}", node);
+        match node {
+            Stmt::Block(s, m) => {
+                assert!(m[&0usize]==Some(1usize));
+                assert!(m[&1usize]==None);
+                assert!(s.len() == 2);
+            }
+            _ => assert!(false)
+        }
+    }
 }
