@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(pub String);
 
@@ -85,69 +83,91 @@ pub enum Type {
 ///     | continue
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Stmt {
-    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
+pub enum StmtContents<'tree> {
+    If(Expr, Box<Stmt<'tree>>, Option<Box<Stmt<'tree>>>),
     Assign(Expr, Expr),
     ExprStmt(Expr),
     Decl(Type, Name, Option<Expr>),
     Return(Option<Expr>),
-    Block(Vec<Stmt>, HashMap<usize, Option<usize>>),
-    //Block(Vec<Stmt<'tree>>, HashMap<&'tree Stmt<'tree>, &'tree Stmt<'tree>>),
-    While(Expr, Box<Stmt>),
+    Block(Vec<Stmt<'tree>>),
+    While(Expr, Box<Stmt<'tree>>),
     Break,
     Continue,
 }
 
-impl<'tree> Stmt {
-    pub fn make_block(stmts: Vec<Stmt>) -> Self {
-        let mut m = HashMap::new();
-        for i in 0..stmts.len() {
-            if i+1 >= stmts.len() {
-                m.insert(i, None);
-                break;
-            }
-            m.insert(i, Some(i+1));
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stmt<'tree> {
+    pub label: Option<Name>,
+    pub contents: StmtContents<'tree>,
+    pub successor: Option<&'tree Stmt<'tree>>,
+    pub parent: Option<&'tree Stmt<'tree>>,
+}
+
+impl<'tree> Stmt<'tree> {
+    pub fn bare_stmt(contents: StmtContents<'tree>) -> Self {
+        Self {
+            contents,
+            label: None,
+            parent: None,
+            successor: None,
         }
-        Self::Block(stmts, m)
-        //Self::Block(stmts, HashMap::new())
-        //Self::Block(stmts, stmts.iter().zip(stmts.iter().skip(1)).collect())
     }
 }
 
 /// # Function
 /// a function consists of a return type, a name, a list of args, and a body statement
 #[derive(Debug, Clone)]
-pub struct Fun {
+pub struct Fun<'tree> {
     pub rtype: Type,
     pub name: Name,
     pub args: Vec<(Type, Name)>,
-    pub body: Stmt,
+    pub body: Stmt<'tree>,
 }
 
 #[derive(Debug, Clone)]
-pub struct Program {
-    pub funs: Vec<Fun>,
+pub struct Program<'tree> {
+    pub funs: Vec<Fun<'tree>>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /*
     #[test]
     fn make_block() {
-        let block = vec![
-            Stmt::Decl(Type::IntT, Name("x".to_string()), None),
-            Stmt::Decl(Type::IntT, Name("y".to_string()), None),
+        let contents = vec![
+            Stmt {
+                contents: StmtContents::Decl(Type::IntT, Name("x".to_string()), None),
+                label: None,
+                successor: None,
+                parent: None,
+            },
+            Stmt {
+                contents: StmtContents::Decl(Type::IntT, Name("y".to_string()), None),
+                label: None,
+                successor: None,
+                parent: None,
+            },
         ];
-        let node = Stmt::make_block(block);
+        let node = Stmt {
+            label: None,
+            contents: StmtContents::Block(contents),
+            successor: None,
+            parent: None,
+        };
         println!("Block Node: {:?}", node);
         match node {
-            Stmt::Block(s, m) => {
-                assert!(m[&0usize]==Some(1usize));
-                assert!(m[&1usize]==None);
+            Stmt {
+                contents: StmtContents::Block(s, m),
+                ..
+            } => {
+                assert!(m[&0usize] == Some(1usize));
+                assert!(m[&1usize] == None);
                 assert!(s.len() == 2);
             }
-            _ => assert!(false)
+            _ => assert!(false),
         }
     }
+    */
 }

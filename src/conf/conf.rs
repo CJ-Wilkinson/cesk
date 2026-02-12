@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Fun, Name, Stmt, Type, Value};
+use crate::ast::{Expr, Fun, Name, Stmt, StmtContents, Type, Value};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -12,20 +12,21 @@ pub enum Control<'tree> {
     // For external AST references
     AstExpr(&'tree Expr),
     // For external AST references
-    AstStmt(&'tree Stmt),
+    AstStmt(&'tree Stmt<'tree>),
     // For evaluated expressions, move ownership into Control
     Expr(Expr),
     // need this?
-    Stmt(Stmt),
+    Stmt(Stmt<'tree>),
 }
 
-pub fn fun_lookup<'tree>(_name: &'tree str) -> Fun {
+pub fn fun_lookup<'tree>(_name: &'tree str) -> Fun<'tree> {
     todo!()
 }
 
-// pub fn successor_lookup<'tree>(stmt: &'tree Stmt) -> &'tree Stmt {
-pub fn successor_lookup<'tree>(_stmt: &'tree Stmt) -> &'tree Stmt {
-    &Stmt::Break
+// pub fn successor_lookup<'tree>(stmt: &'tree Stmt<'tree>) -> &'tree Stmt<'tree> {
+pub fn successor_lookup<'tree>(_stmt: &'tree Stmt<'tree>) -> &'tree Stmt<'tree> {
+    // todo!()
+    _stmt
 }
 
 pub fn alloc() -> i32 {
@@ -74,49 +75,53 @@ struct Configuration<'tree> {
 impl<'tree> Configuration<'tree> {
     pub fn next(&'tree self) -> Self {
         match self.c {
-            Control::AstStmt(Stmt::If(condition, true_branch, false_branch)) => {
-                Self {
-                    c: Control::AstExpr(condition),
-                    e: self.e.clone(),
-                    s: self.s.clone(),
-                    k: Rc::new(Kont::IfK(
-                        self.e.clone(),
-                        Control::AstStmt(true_branch),
-                        //&Control::AstStmt(false_branch.unwrap().as_ref().unwrap()),
-                        match false_branch {
-                            Some(x) => Some(Control::AstStmt(x.as_ref())),
-                            None => None,
-                        },
-                        self.k.clone(),
-                    )),
+            Control::AstStmt(s) => {
+                match &s.contents {
+                    StmtContents::If(condition, true_branch, false_branch) => {
+                        Self {
+                            c: Control::AstExpr(&condition),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(Kont::IfK(
+                                self.e.clone(),
+                                Control::AstStmt(&true_branch),
+                                //&Control::AstStmt(false_branch.unwrap().as_ref().unwrap()),
+                                match false_branch {
+                                    Some(x) => Some(Control::AstStmt(x.as_ref())),
+                                    None => None,
+                                },
+                                self.k.clone(),
+                            )),
+                        }
+                    }
+                    StmtContents::Assign(_l, _r) => todo!(),
+                    StmtContents::ExprStmt(_expr) => todo!(),
+                    StmtContents::Decl(_typ, _name, None) => Self {
+                        c: Control::AstStmt(successor_lookup(&s)),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: self.k.clone(),
+                    },
+                    StmtContents::Decl(typ, name, Some(init)) => Self {
+                        c: Control::AstExpr(&init),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(Kont::DeclK(
+                            self.e.clone(),
+                            typ.clone(),
+                            name.clone(),
+                            Control::AstStmt(successor_lookup(&s)),
+                            self.k.clone(),
+                        )),
+                    },
+                    StmtContents::Return(Some(_expr)) => todo!(),
+                    StmtContents::Return(None) => todo!(),
+                    StmtContents::Block(_stmts) => todo!(),
+                    StmtContents::While(_condition, _stmt) => todo!(),
+                    StmtContents::Break => todo!(),
+                    StmtContents::Continue => todo!(),
                 }
             }
-            Control::AstStmt(Stmt::Assign(_l, _r)) => todo!(),
-            Control::AstStmt(Stmt::ExprStmt(_expr)) => todo!(),
-            Control::AstStmt(stmt @ Stmt::Decl(_typ, _name, None)) => Self {
-                c: Control::AstStmt(successor_lookup(stmt)),
-                e: self.e.clone(),
-                s: self.s.clone(),
-                k: self.k.clone(),
-            },
-            Control::AstStmt(stmt @ Stmt::Decl(typ, name, Some(init))) => Self {
-                c: Control::AstExpr(init),
-                e: self.e.clone(),
-                s: self.s.clone(),
-                k: Rc::new(Kont::DeclK(
-                    self.e.clone(),
-                    typ.clone(),
-                    name.clone(),
-                    Control::AstStmt(successor_lookup(stmt)),
-                    self.k.clone(),
-                )),
-            },
-            Control::AstStmt(Stmt::Return(Some(_expr))) => todo!(),
-            Control::AstStmt(Stmt::Return(None)) => todo!(),
-            Control::AstStmt(Stmt::Block(_stmts, _successors)) => todo!(),
-            Control::AstStmt(Stmt::While(_condition, _stmt)) => todo!(),
-            Control::AstStmt(Stmt::Break) => todo!(),
-            Control::AstStmt(Stmt::Continue) => todo!(),
 
             Control::AstExpr(e) => match e {
                 // only spot to invoke kont
@@ -170,11 +175,11 @@ impl<'tree> Configuration<'tree> {
 }
 
 fn it_works() {
-    let ast = Stmt::Decl(
+    let ast = Stmt::bare_stmt(StmtContents::Decl(
         Type::IntT,
         Name("CESK".to_string()),
         Some(Expr::Val(Value::IntV(42))),
-    );
+    ));
     let sigma_0 = Configuration {
         c: Control::AstStmt(&ast),
         e: Rc::new(HashMap::new()),
@@ -204,11 +209,11 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let ast = Stmt::Decl(
+        let ast = Stmt::bare_stmt(StmtContents::Decl(
             Type::IntT,
             Name("CESK".to_string()),
             Some(Expr::Val(Value::IntV(42))),
-        );
+        ));
         let sigma_0 = Configuration {
             c: Control::AstStmt(&ast),
             e: Rc::new(HashMap::new()),

@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Fun, Name, Program, Stmt, Type, Value};
+use crate::ast::{Expr, Fun, Name, Program, Stmt, StmtContents, Type, Value};
 use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
 
 pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> {
@@ -47,20 +47,21 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> {
     expr
 }
 
-pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt> {
+pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> {
     // TODO other Stmt variants
     choice((
         exp_parser()
             .then_ignore(just(';'))
-            .map(|e| Stmt::ExprStmt(e)),
+            .map(|e| StmtContents::ExprStmt(e)),
         exp_parser()
             .then_ignore(just('=').padded())
             .then(exp_parser())
-            .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
+            .map(|(lhs, rhs)| StmtContents::Assign(lhs, rhs)),
     ))
+    .map(|contents| Stmt::bare_stmt(contents))
 }
 
-pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun> {
+pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
     typ_parser()
         .then(ident_parser())
         .then_ignore(just('(').padded())
@@ -75,7 +76,7 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun> {
             stmt_parser()
                 .repeated()
                 .collect::<Vec<_>>()
-                .map(|b| Stmt::make_block(b)),
+                .map(|b| Stmt::bare_stmt(StmtContents::Block(b))),
         )
         .then_ignore(just('}').padded())
         .map(|(((rtype, name), args), body)| Fun {
@@ -86,7 +87,7 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun> {
         })
 }
 
-pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program> {
+pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program<'tree>> {
     fun_parser()
         .repeated()
         .collect::<Vec<_>>()
@@ -104,14 +105,14 @@ pub fn parse(filename: &str) {
 mod tests {
     use super::*;
 
-    fn program_test(program_string: &str) -> Result<Program, ()> {
+    fn program_test(program_string: &str) -> Result<Program<'_>, ()> {
         program_parser()
             .parse(&program_string)
             .into_result()
             .map_err(|_| ())
     }
 
-    fn stmt_test(stmt: &str) -> Result<Stmt, ()> {
+    fn stmt_test(stmt: &str) -> Result<Stmt<'_>, ()> {
         stmt_parser().parse(stmt).into_result().map_err(|_| ())
     }
 
@@ -147,7 +148,11 @@ mod tests {
 
     #[test]
     fn assignment() {
-        if let Ok(Stmt::Assign(lhs, rhs)) = stmt_test("x = 3;") {
+        if let Ok(Stmt {
+            contents: StmtContents::Assign(lhs, rhs),
+            ..
+        }) = stmt_test("x = 3;")
+        {
             assert_eq!(lhs, Expr::Var(Name("x".to_string())));
             assert_eq!(rhs, Expr::Val(Value::IntV(3)));
         }
