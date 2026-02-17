@@ -1,5 +1,6 @@
-use crate::ast::{Expr, Fun, Name, Program, Stmt, StmtContents, Type, Value};
+use crate::ast::{Expr, Fun, Name, Program, Ref, Stmt, Type, Value};
 use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
+use std::collections::BTreeMap;
 
 pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> {
     choice((
@@ -52,13 +53,12 @@ pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> {
     choice((
         exp_parser()
             .then_ignore(just(';'))
-            .map(|e| StmtContents::ExprStmt(e)),
+            .map(|e| Stmt::ExprStmt(e)),
         exp_parser()
             .then_ignore(just('=').padded())
             .then(exp_parser())
-            .map(|(lhs, rhs)| StmtContents::Assign(lhs, rhs)),
+            .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
     ))
-    .map(|contents| Stmt::bare_stmt(contents))
 }
 
 pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
@@ -76,7 +76,7 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
             stmt_parser()
                 .repeated()
                 .collect::<Vec<_>>()
-                .map(|b| Stmt::bare_stmt(StmtContents::Block(b))),
+                .map(|stmts| Stmt::Block(stmts.iter().map(|s| (s, None)).collect())),
         )
         .then_ignore(just('}').padded())
         .map(|(((rtype, name), args), body)| Fun {
@@ -88,10 +88,28 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
 }
 
 pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program<'tree>> {
-    fun_parser()
-        .repeated()
-        .collect::<Vec<_>>()
-        .map(|funs| Program { funs })
+    fun_parser().repeated().collect::<Vec<Fun>>().map(|funs| {
+        let mut stmts: BTreeMap<Stmt, Ref<'tree>> = funs.iter().map(|stmt| (stmt, None)).collect();
+        fn to_ref<'tree>(stmt: &'tree Stmt<'tree>) -> Ref<'tree> {
+            Ref(stmt)
+        }
+        let mut find_successors = |stmt: &'tree Stmt<'tree>| match stmt {
+            Stmt::Block(stmts) => {
+                for (before, after) in stmts
+                    .iter()
+                    .map(to_ref)
+                    .zip(stmts.iter().skip(1).map(to_ref))
+                {
+                    successors.insert(before, after);
+                }
+            }
+            _ => {}
+        };
+        for fun in &funs {
+            find_successors(&fun.body);
+        }
+        Program { funs, successors }
+    })
 }
 
 pub fn parse(filename: &str) {
@@ -105,14 +123,14 @@ pub fn parse(filename: &str) {
 mod tests {
     use super::*;
 
-    fn program_test(program_string: &str) -> Result<Program<'_>, ()> {
+    fn program_test(program_string: &str) -> Result<Program, ()> {
         program_parser()
             .parse(&program_string)
             .into_result()
             .map_err(|_| ())
     }
 
-    fn stmt_test(stmt: &str) -> Result<Stmt<'_>, ()> {
+    fn stmt_test(stmt: &str) -> Result<Stmt, ()> {
         stmt_parser().parse(stmt).into_result().map_err(|_| ())
     }
 
@@ -148,11 +166,7 @@ mod tests {
 
     #[test]
     fn assignment() {
-        if let Ok(Stmt {
-            contents: StmtContents::Assign(lhs, rhs),
-            ..
-        }) = stmt_test("x = 3;")
-        {
+        if let Ok(Stmt::Assign(lhs, rhs)) = stmt_test("x = 3;") {
             assert_eq!(lhs, Expr::Var(Name("x".to_string())));
             assert_eq!(rhs, Expr::Val(Value::IntV(3)));
         }

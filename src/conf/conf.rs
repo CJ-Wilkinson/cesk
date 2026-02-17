@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Fun, Name, Stmt, StmtContents, Type, Value};
+use crate::ast::{Expr, Fun, Name, Stmt, Type, Value};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -19,7 +19,7 @@ pub enum Control<'tree> {
     Stmt(Stmt<'tree>),
 }
 
-pub fn fun_lookup<'tree>(_name: &'tree str) -> Fun<'tree> {
+pub fn fun_lookup<'tree>(_name: &'tree str) -> Fun {
     todo!()
 }
 
@@ -76,8 +76,8 @@ impl<'tree> Configuration<'tree> {
     pub fn next(&'tree self) -> Self {
         match self.c {
             Control::AstStmt(s) => {
-                match &s.contents {
-                    StmtContents::If(condition, true_branch, false_branch) => {
+                match s {
+                    Stmt::If(condition, true_branch, false_branch) => {
                         Self {
                             c: Control::AstExpr(&condition),
                             e: self.e.clone(),
@@ -94,15 +94,15 @@ impl<'tree> Configuration<'tree> {
                             )),
                         }
                     }
-                    StmtContents::Assign(_l, _r) => todo!(),
-                    StmtContents::ExprStmt(_expr) => todo!(),
-                    StmtContents::Decl(_typ, _name, None) => Self {
+                    Stmt::Assign(_l, _r) => todo!(),
+                    Stmt::ExprStmt(_expr) => todo!(),
+                    Stmt::Decl(_typ, _name, None) => Self {
                         c: Control::AstStmt(successor_lookup(&s)),
                         e: self.e.clone(),
                         s: self.s.clone(),
                         k: self.k.clone(),
                     },
-                    StmtContents::Decl(typ, name, Some(init)) => Self {
+                    Stmt::Decl(typ, name, Some(init)) => Self {
                         c: Control::AstExpr(&init),
                         e: self.e.clone(),
                         s: self.s.clone(),
@@ -114,12 +114,12 @@ impl<'tree> Configuration<'tree> {
                             self.k.clone(),
                         )),
                     },
-                    StmtContents::Return(Some(_expr)) => todo!(),
-                    StmtContents::Return(None) => todo!(),
-                    StmtContents::Block(_stmts) => todo!(),
-                    StmtContents::While(_condition, _stmt) => todo!(),
-                    StmtContents::Break => todo!(),
-                    StmtContents::Continue => todo!(),
+                    Stmt::Return(Some(_expr)) => todo!(),
+                    Stmt::Return(None) => todo!(),
+                    Stmt::Block(_stmts) => todo!(),
+                    Stmt::While(_condition, _stmt) => todo!(),
+                    Stmt::Break => todo!(),
+                    Stmt::Continue => todo!(),
                 }
             }
 
@@ -175,11 +175,11 @@ impl<'tree> Configuration<'tree> {
 }
 
 fn it_works() {
-    let ast = Stmt::bare_stmt(StmtContents::Decl(
+    let ast = Stmt::Decl(
         Type::IntT,
         Name("CESK".to_string()),
         Some(Expr::Val(Value::IntV(42))),
-    ));
+    );
     let sigma_0 = Configuration {
         c: Control::AstStmt(&ast),
         e: Rc::new(HashMap::new()),
@@ -209,11 +209,11 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let ast = Stmt::bare_stmt(StmtContents::Decl(
+        let ast = Stmt::Decl(
             Type::IntT,
             Name("CESK".to_string()),
             Some(Expr::Val(Value::IntV(42))),
-        ));
+        );
         let sigma_0 = Configuration {
             c: Control::AstStmt(&ast),
             e: Rc::new(HashMap::new()),

@@ -1,5 +1,32 @@
+use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(pub String);
+
+#[derive(Debug, Clone, Eq)]
+pub struct Ref<'tree>(pub &'tree Stmt<'tree>);
+
+impl<'tree> Ref<'tree> {
+    fn as_usize(&self) -> usize {
+        self.0 as *const Stmt as usize
+    }
+}
+
+impl<'tree> Hash for Ref<'tree> {
+    fn hash<H>(&self, hasher: &mut H)
+    where
+        H: Hasher,
+    {
+        hasher.write_usize(self.as_usize());
+    }
+}
+
+impl<'tree> PartialEq for Ref<'tree> {
+    fn eq(&self, other: &Ref<'tree>) -> bool {
+        self.as_usize() == other.as_usize()
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Value {
@@ -83,18 +110,19 @@ pub enum Type {
 ///     | continue
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum StmtContents<'tree> {
+pub enum Stmt<'tree> {
     If(Expr, Box<Stmt<'tree>>, Option<Box<Stmt<'tree>>>),
     Assign(Expr, Expr),
     ExprStmt(Expr),
     Decl(Type, Name, Option<Expr>),
     Return(Option<Expr>),
-    Block(Vec<Stmt<'tree>>),
+    Block(BTreeMap<Stmt<'tree>, Option<Ref<'tree>>>),
     While(Expr, Box<Stmt<'tree>>),
     Break,
     Continue,
 }
 
+/*
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stmt<'tree> {
     pub label: Option<Name>,
@@ -102,17 +130,7 @@ pub struct Stmt<'tree> {
     pub successor: Option<&'tree Stmt<'tree>>,
     pub parent: Option<&'tree Stmt<'tree>>,
 }
-
-impl<'tree> Stmt<'tree> {
-    pub fn bare_stmt(contents: StmtContents<'tree>) -> Self {
-        Self {
-            contents,
-            label: None,
-            parent: None,
-            successor: None,
-        }
-    }
-}
+*/
 
 /// # Function
 /// a function consists of a return type, a name, a list of args, and a body statement
@@ -131,9 +149,9 @@ pub struct Program<'tree> {
 
 #[cfg(test)]
 mod tests {
+    /*
     use super::*;
 
-    /*
     #[test]
     fn make_block() {
         let contents = vec![
