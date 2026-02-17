@@ -1,8 +1,7 @@
 use crate::ast::{Expr, Fun, Name, Program, Ref, Stmt, Type, Value};
 use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
-use std::collections::BTreeMap;
 
-pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> {
+pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
     choice((
         text::ascii::keyword("int").padded().to(Type::IntT),
         text::ascii::keyword("bool").padded().to(Type::BoolT),
@@ -16,7 +15,7 @@ pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
         .map(|name: &'src str| Name(name.to_string()))
 }
 
-pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> {
+pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     let int = text::int(10)
         .map(|s: &str| Value::IntV(s.parse().unwrap()))
         .padded();
@@ -31,15 +30,17 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> {
         choice((
             value.map(|v| Expr::Val(v)),
             just('-')
+                .padded()
                 .ignore_then(expr.clone())
                 .map(|e| Expr::Neg(Box::new(e))),
             ident_parser()
-                .then_ignore(just('('))
+                .then_ignore(just('(').padded())
                 .then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
-                .then_ignore(just(')'))
+                .then_ignore(just(')').padded())
                 .map(|(name, args)| Expr::Call(name, args)),
             ident_parser().map(|n| Expr::Var(n)),
             just('[')
+                .padded()
                 .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
                 .then_ignore(just(']'))
                 .map(|exprs| Expr::Array(exprs)),
@@ -48,17 +49,51 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> {
     expr
 }
 
-pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> {
+pub fn block_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> + Clone {
+    just('{')
+        .padded()
+        .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
+            Stmt::Block(
+                stmts
+                    .into_iter()
+                    .map(|s| {
+                        let next: Option<Ref<'tree>> = None;
+                        (s, next)
+                    })
+                    .collect(),
+            )
+        }))
+        .then_ignore(just('}').padded())
+}
+
+pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> + Clone {
     // TODO other Stmt variants
-    choice((
-        exp_parser()
-            .then_ignore(just(';'))
-            .map(|e| Stmt::ExprStmt(e)),
-        exp_parser()
-            .then_ignore(just('=').padded())
-            .then(exp_parser())
-            .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
-    ))
+    let stmt = recursive(|stmt| {
+        choice((
+            exp_parser()
+                .then_ignore(just(';'))
+                .map(|e| Stmt::ExprStmt(e)),
+            exp_parser()
+                .then_ignore(just('=').padded())
+                .then(exp_parser())
+                .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
+            block_parser(),
+            text::ascii::keyword("if")
+                .padded()
+                .ignore_then(just('(').padded())
+                .ignore_then(exp_parser())
+                .then_ignore(just(')').padded())
+                .then(stmt.clone())
+                .then(
+                    text::ascii::keyword("else")
+                        .padded()
+                        .ignore_then(stmt.clone())
+                        .or_not(),
+                )
+                .map(|((cond, t), f)| Stmt::If(cond, Box::new(t), f.map(|s| Box::new(s)))),
+        ))
+    });
+    stmt
 }
 
 pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
@@ -71,14 +106,7 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
                 .collect::<Vec<_>>(),
         )
         .then_ignore(just(')').padded())
-        .then_ignore(just('{').padded())
-        .then(
-            stmt_parser()
-                .repeated()
-                .collect::<Vec<_>>()
-                .map(|stmts| Stmt::Block(stmts.iter().map(|s| (s, None)).collect())),
-        )
-        .then_ignore(just('}').padded())
+        .then(block_parser())
         .map(|(((rtype, name), args), body)| Fun {
             rtype,
             name,
@@ -88,28 +116,10 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
 }
 
 pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program<'tree>> {
-    fun_parser().repeated().collect::<Vec<Fun>>().map(|funs| {
-        let mut stmts: BTreeMap<Stmt, Ref<'tree>> = funs.iter().map(|stmt| (stmt, None)).collect();
-        fn to_ref<'tree>(stmt: &'tree Stmt<'tree>) -> Ref<'tree> {
-            Ref(stmt)
-        }
-        let mut find_successors = |stmt: &'tree Stmt<'tree>| match stmt {
-            Stmt::Block(stmts) => {
-                for (before, after) in stmts
-                    .iter()
-                    .map(to_ref)
-                    .zip(stmts.iter().skip(1).map(to_ref))
-                {
-                    successors.insert(before, after);
-                }
-            }
-            _ => {}
-        };
-        for fun in &funs {
-            find_successors(&fun.body);
-        }
-        Program { funs, successors }
-    })
+    fun_parser()
+        .repeated()
+        .collect::<Vec<Fun<'tree>>>()
+        .map(|funs| Program { funs })
 }
 
 pub fn parse(filename: &str) {

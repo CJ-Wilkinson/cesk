@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Name(pub String);
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
 pub struct Ref<'tree>(pub &'tree Stmt<'tree>);
 
 impl<'tree> Ref<'tree> {
@@ -28,7 +28,7 @@ impl<'tree> PartialEq for Ref<'tree> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Value {
     IntV(i32),
     BoolV(bool),
@@ -36,7 +36,7 @@ pub enum Value {
     ArrayV(Vec<Value>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ArithBinop {
     Add,
     Mult,
@@ -57,7 +57,7 @@ impl ArithBinop {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum CompareBinop {
     Eq,
     Neq,
@@ -83,7 +83,7 @@ impl CompareBinop {
 /// # Expressions
 /// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
 ///     | fn call | []
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
     Val(Value),
 
@@ -97,7 +97,7 @@ pub enum Expr {
     Array(Vec<Expr>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Type {
     IntT,
     BoolT,
@@ -109,7 +109,7 @@ pub enum Type {
 /// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
 ///     | continue
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt<'tree> {
     If(Expr, Box<Stmt<'tree>>, Option<Box<Stmt<'tree>>>),
     Assign(Expr, Expr),
