@@ -1,32 +1,33 @@
 use std::collections::BTreeMap;
-use std::hash::{Hash, Hasher};
+//use std::hash::{Hash, Hasher};
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Name(pub String);
 
-#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
-pub struct Ref<'tree>(pub &'tree Stmt<'tree>);
+//#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
+//pub struct Ref<'tree>(pub &'tree Stmt);
+//
+//impl<'tree> Ref<'tree> {
+//    fn as_usize(&self) -> usize {
+//        self.0 as *const Stmt as usize
+//    }
+//}
 
-impl<'tree> Ref<'tree> {
-    fn as_usize(&self) -> usize {
-        self.0 as *const Stmt as usize
-    }
-}
-
-impl<'tree> Hash for Ref<'tree> {
-    fn hash<H>(&self, hasher: &mut H)
-    where
-        H: Hasher,
-    {
-        hasher.write_usize(self.as_usize());
-    }
-}
-
-impl<'tree> PartialEq for Ref<'tree> {
-    fn eq(&self, other: &Ref<'tree>) -> bool {
-        self.as_usize() == other.as_usize()
-    }
-}
+//impl<'tree> Hash for Ref<'tree> {
+//    fn hash<H>(&self, hasher: &mut H)
+//    where
+//        H: Hasher,
+//    {
+//        hasher.write_usize(self.as_usize());
+//    }
+//}
+//
+//impl<'tree> PartialEq for Ref<'tree> {
+//    fn eq(&self, other: &Ref<'tree>) -> bool {
+//        self.as_usize() == other.as_usize()
+//    }
+//}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Value {
@@ -110,41 +111,41 @@ pub enum Type {
 ///     | continue
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Stmt<'tree> {
-    If(Expr, Box<Stmt<'tree>>, Option<Box<Stmt<'tree>>>),
+pub enum Stmt {
+    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
     Assign(Expr, Expr),
     ExprStmt(Expr),
     Decl(Type, Name, Option<Expr>),
     Return(Option<Expr>),
-    Block(BTreeMap<Stmt<'tree>, Option<Ref<'tree>>>),
-    While(Expr, Box<Stmt<'tree>>),
+    Block(BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>>),
+    While(Expr, Box<Stmt>),
     Break,
     Continue,
 }
 
 /*
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Stmt<'tree> {
+pub struct Stmt {
     pub label: Option<Name>,
     pub contents: StmtContents<'tree>,
-    pub successor: Option<&'tree Stmt<'tree>>,
-    pub parent: Option<&'tree Stmt<'tree>>,
+    pub successor: Option<&'tree Stmt>,
+    pub parent: Option<&'tree Stmt>,
 }
 */
 
 /// # Function
 /// a function consists of a return type, a name, a list of args, and a body statement
 #[derive(Debug, Clone)]
-pub struct Fun<'tree> {
+pub struct Fun {
     pub rtype: Type,
     pub name: Name,
     pub args: Vec<(Type, Name)>,
-    pub body: Stmt<'tree>,
+    pub body: Stmt,
 }
 
 #[derive(Debug, Clone)]
-pub struct Program<'tree> {
-    pub funs: Vec<Fun<'tree>>,
+pub struct Program {
+    pub funs: Vec<Fun>,
 }
 
 #[cfg(test)]

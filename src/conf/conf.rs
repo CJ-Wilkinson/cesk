@@ -12,11 +12,11 @@ pub enum Control<'tree> {
     // For external AST references
     AstExpr(&'tree Expr),
     // For external AST references
-    AstStmt(&'tree Stmt<'tree>),
+    AstStmt(&'tree Stmt),
     // For evaluated expressions, move ownership into Control
     Expr(Expr),
     // need this?
-    Stmt(Stmt<'tree>),
+    Stmt(Stmt),
 }
 
 pub fn fun_lookup<'tree>(_name: &'tree str) -> Fun {
@@ -24,7 +24,7 @@ pub fn fun_lookup<'tree>(_name: &'tree str) -> Fun {
 }
 
 // pub fn successor_lookup<'tree>(stmt: &'tree Stmt<'tree>) -> &'tree Stmt<'tree> {
-pub fn successor_lookup<'tree>(_stmt: &'tree Stmt<'tree>) -> &'tree Stmt<'tree> {
+pub fn successor_lookup<'tree>(_stmt: &'tree Stmt) -> &'tree Stmt {
     // todo!()
     _stmt
 }

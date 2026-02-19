@@ -1,5 +1,7 @@
-use crate::ast::{Expr, Fun, Name, Program, Ref, Stmt, Type, Value};
-use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
+use std::rc::Rc;
+
+use crate::ast::{Expr, Fun, Name, Program, Stmt, Type, Value};
+use chumsky::prelude::{IterParser, Parser, choice, just, recursive, text};
 
 pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
     choice((
@@ -48,25 +50,25 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     });
     expr
 }
+//
+//pub fn block_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt> + Clone {
+//    just('{')
+//        .padded()
+//        .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
+//            Stmt::Block(
+//                stmts
+//                    .into_iter()
+//                    .map(|s| {
+//                        let next: Option<Rc<Stmt>> = None;
+//                        (Rc::new(s), next)
+//                    })
+//                    .collect(),
+//            )
+//        }))
+//        .then_ignore(just('}').padded())
+//}
 
-pub fn block_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> + Clone {
-    just('{')
-        .padded()
-        .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
-            Stmt::Block(
-                stmts
-                    .into_iter()
-                    .map(|s| {
-                        let next: Option<Ref<'tree>> = None;
-                        (s, next)
-                    })
-                    .collect(),
-            )
-        }))
-        .then_ignore(just('}').padded())
-}
-
-pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> + Clone {
+pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt> + Clone {
     // TODO other Stmt variants
     let stmt = recursive(|stmt| {
         choice((
@@ -76,8 +78,22 @@ pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> +
             exp_parser()
                 .then_ignore(just('=').padded())
                 .then(exp_parser())
+                .then_ignore(just(';').padded())
                 .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
-            block_parser(),
+            just('{')
+                .padded()
+                .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
+                    Stmt::Block(
+                        stmts
+                            .into_iter()
+                            .map(|s| {
+                                let next: Option<Rc<Stmt>> = None;
+                                (Rc::new(s), next)
+                            })
+                            .collect(),
+                    )
+                }))
+                .then_ignore(just('}').padded()),
             text::ascii::keyword("if")
                 .padded()
                 .ignore_then(just('(').padded())
@@ -96,7 +112,7 @@ pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt<'tree>> +
     stmt
 }
 
-pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
+pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun> {
     typ_parser()
         .then(ident_parser())
         .then_ignore(just('(').padded())
@@ -106,7 +122,7 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
                 .collect::<Vec<_>>(),
         )
         .then_ignore(just(')').padded())
-        .then(block_parser())
+        .then(stmt_parser())
         .map(|(((rtype, name), args), body)| Fun {
             rtype,
             name,
@@ -115,10 +131,10 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun<'tree>> {
         })
 }
 
-pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program<'tree>> {
+pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program> {
     fun_parser()
         .repeated()
-        .collect::<Vec<Fun<'tree>>>()
+        .collect::<Vec<Fun>>()
         .map(|funs| Program { funs })
 }
 
