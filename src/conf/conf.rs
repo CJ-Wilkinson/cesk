@@ -149,6 +149,7 @@ impl<'tree> Configuration<'tree> {
                 Expr::Var(_name) => todo!(),
                 Expr::Call(_name, _exprs) => todo!(),
                 Expr::Array(_exprs) => todo!(),
+                Expr::Index(_array, _index) => todo!(),
             },
             _ => todo!(),
         }

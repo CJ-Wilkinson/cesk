@@ -1,6 +1,8 @@
 use std::rc::Rc;
 
 use crate::ast::{ArithBinop, CompareBinop, Expr, Fun, Name, Program, Stmt, Type, Value};
+// use chumsky::error::EmptyErr;
+use chumsky::pratt::{infix, left, none, prefix};
 use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
 
 pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
@@ -17,14 +19,23 @@ pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
         .map(|name: &'src str| Name(name.to_string()))
 }
 
-pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
+pub fn add_sub_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
     choice((
         just('+').padded().to(ArithBinop::Add),
         just('-').padded().to(ArithBinop::Sub),
+    ))
+}
+
+pub fn mult_div_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
+    choice((
         just('*').padded().to(ArithBinop::Mult),
         just('/').padded().to(ArithBinop::Div),
         just('%').padded().to(ArithBinop::Rem),
     ))
+}
+
+pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
+    choice((add_sub_parser(), mult_div_parser()))
 }
 
 pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, CompareBinop> + Clone {
@@ -38,7 +49,7 @@ pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, CompareBinop
     ))
 }
 
-pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
+fn atomic_exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     let int = text::int(10)
         .map(|s: &str| Value::IntV(s.parse().unwrap()))
         .padded();
@@ -49,32 +60,57 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     let bool_v = choice((true_v, false_v));
 
     let value = choice((int, bool_v));
+    choice((
+        value.map(|v| Expr::Val(v)),
+        ident_parser()
+            .then(
+                just('(')
+                    .padded()
+                    .ignore_then(exp_parser().separated_by(just(',')).collect::<Vec<_>>())
+                    .then_ignore(just(')').padded())
+                    .or_not(),
+            )
+            .map(|(n, args)| match args {
+                Some(a) => Expr::Call(n, a),
+                None => Expr::Var(n),
+            }),
+        just('(')
+            .padded()
+            .ignore_then(exp_parser())
+            .then_ignore(just(')').padded()),
+    ))
+    .then(
+        just('[')
+            .padded()
+            .ignore_then(exp_parser())
+            .then_ignore(just(']').padded())
+            .or_not(),
+    )
+    .map(|(e, i)| match i {
+        Some(index) => Expr::Index(Box::new(e), Box::new(index)),
+        None => e,
+    })
+}
+
+pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
+    fn make_arith(lhs: Expr, op: ArithBinop, rhs: Expr) -> Expr {
+        Expr::ArithBinop(Box::new(lhs), op, Box::new(rhs))
+    }
     let expr = recursive(|expr| {
         choice((
-            value.map(|v| Expr::Val(v)),
-            just('-')
-                .padded()
-                .ignore_then(expr.clone())
-                .map(|e| Expr::Neg(Box::new(e))),
-            ident_parser()
-                .then_ignore(just('(').padded())
-                .then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
-                .then_ignore(just(')').padded())
-                .map(|(name, args)| Expr::Call(name, args)),
-            ident_parser().map(|n| Expr::Var(n)),
+            atomic_exp_parser().pratt((
+                infix(none(1), compare_binop_parser(), |l, op, r, _| {
+                    Expr::CompareBinop(Box::new(l), op, Box::new(r))
+                }),
+                infix(left(2), add_sub_parser(), |l, o, r, _| make_arith(l, o, r)),
+                infix(left(3), mult_div_parser(), |l, o, r, _| make_arith(l, o, r)),
+                prefix(4, just('-').padded(), |_, e, _| Expr::Neg(Box::new(e))),
+            )),
             just('[')
                 .padded()
                 .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
                 .then_ignore(just(']'))
                 .map(|exprs| Expr::Array(exprs)),
-            expr.clone()
-                .then(arith_binop_parser())
-                .then(expr.clone())
-                .map(|((lhs, op), rhs)| Expr::ArithBinop(Box::new(lhs), op, Box::new(rhs))),
-            expr.clone()
-                .then(compare_binop_parser())
-                .then(expr.clone())
-                .map(|((lhs, op), rhs)| Expr::CompareBinop(Box::new(lhs), op, Box::new(rhs))),
         ))
     });
     expr

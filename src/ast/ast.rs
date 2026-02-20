@@ -96,6 +96,7 @@ pub enum Expr {
 
     Call(Name, Vec<Expr>),
     Array(Vec<Expr>),
+    Index(Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
