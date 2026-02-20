@@ -1,3 +1,3 @@
 pub mod ast;
 
-pub use ast::{Expr, Fun, Name, Program, Stmt, Type, Value};
+pub use ast::{ArithBinop, CompareBinop, Expr, Fun, Name, Program, Stmt, Type, Value};

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use crate::ast::{Expr, Fun, Name, Program, Stmt, Type, Value};
-use chumsky::prelude::{IterParser, Parser, choice, just, recursive, text};
+use crate::ast::{ArithBinop, CompareBinop, Expr, Fun, Name, Program, Stmt, Type, Value};
+use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
 
 pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
     choice((
@@ -15,6 +15,27 @@ pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
     text::ascii::ident()
         .padded()
         .map(|name: &'src str| Name(name.to_string()))
+}
+
+pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
+    choice((
+        just('+').padded().to(ArithBinop::Add),
+        just('-').padded().to(ArithBinop::Sub),
+        just('*').padded().to(ArithBinop::Mult),
+        just('/').padded().to(ArithBinop::Div),
+        just('%').padded().to(ArithBinop::Rem),
+    ))
+}
+
+pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, CompareBinop> + Clone {
+    choice((
+        just('<').padded().to(CompareBinop::Lt),
+        just('>').padded().to(CompareBinop::Gt),
+        text::ascii::keyword("<=").padded().to(CompareBinop::Lte),
+        text::ascii::keyword(">=").padded().to(CompareBinop::Gte),
+        text::ascii::keyword("==").padded().to(CompareBinop::Eq),
+        text::ascii::keyword("!=").padded().to(CompareBinop::Neq),
+    ))
 }
 
 pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
@@ -46,31 +67,39 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
                 .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
                 .then_ignore(just(']'))
                 .map(|exprs| Expr::Array(exprs)),
+            expr.clone()
+                .then(arith_binop_parser())
+                .then(expr.clone())
+                .map(|((lhs, op), rhs)| Expr::ArithBinop(Box::new(lhs), op, Box::new(rhs))),
+            expr.clone()
+                .then(compare_binop_parser())
+                .then(expr.clone())
+                .map(|((lhs, op), rhs)| Expr::CompareBinop(Box::new(lhs), op, Box::new(rhs))),
         ))
     });
     expr
 }
-//
-//pub fn block_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt> + Clone {
-//    just('{')
-//        .padded()
-//        .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
-//            Stmt::Block(
-//                stmts
-//                    .into_iter()
-//                    .map(|s| {
-//                        let next: Option<Rc<Stmt>> = None;
-//                        (Rc::new(s), next)
-//                    })
-//                    .collect(),
-//            )
-//        }))
-//        .then_ignore(just('}').padded())
-//}
 
-pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt> + Clone {
+pub fn block_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
+    just('{')
+        .padded()
+        .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
+            Stmt::Block(
+                stmts
+                    .into_iter()
+                    .map(|s| {
+                        let next: Option<Rc<Stmt>> = None;
+                        (Rc::new(s), next)
+                    })
+                    .collect(),
+            )
+        }))
+        .then_ignore(just('}').padded())
+}
+
+pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
     // TODO other Stmt variants
-    let stmt = recursive(|stmt| {
+    let stmt = recursive(|_stmt| {
         choice((
             exp_parser()
                 .then_ignore(just(';'))
@@ -80,39 +109,43 @@ pub fn stmt_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Stmt> + Clone 
                 .then(exp_parser())
                 .then_ignore(just(';').padded())
                 .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
-            just('{')
-                .padded()
-                .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
-                    Stmt::Block(
-                        stmts
-                            .into_iter()
-                            .map(|s| {
-                                let next: Option<Rc<Stmt>> = None;
-                                (Rc::new(s), next)
-                            })
-                            .collect(),
-                    )
-                }))
-                .then_ignore(just('}').padded()),
+            block_parser(),
             text::ascii::keyword("if")
                 .padded()
                 .ignore_then(just('(').padded())
                 .ignore_then(exp_parser())
                 .then_ignore(just(')').padded())
-                .then(stmt.clone())
+                .then(block_parser())
                 .then(
                     text::ascii::keyword("else")
                         .padded()
-                        .ignore_then(stmt.clone())
+                        .ignore_then(block_parser())
                         .or_not(),
                 )
                 .map(|((cond, t), f)| Stmt::If(cond, Box::new(t), f.map(|s| Box::new(s)))),
+            text::ascii::keyword("while")
+                .padded()
+                .ignore_then(just('(').padded())
+                .ignore_then(exp_parser())
+                .then_ignore(just(')').padded())
+                .then(block_parser())
+                .map(|(cond, t)| Stmt::While(cond, Box::new(t))),
+            text::ascii::keyword("return")
+                .padded()
+                .ignore_then(exp_parser().or_not())
+                .then_ignore(just(';').padded())
+                .map(|exp| Stmt::Return(exp)),
+            typ_parser()
+                .then(ident_parser())
+                .then(just('=').padded().ignore_then(exp_parser()).or_not())
+                .then_ignore(just(';').padded())
+                .map(|((typ, name), init)| Stmt::Decl(typ, name, init)),
         ))
     });
     stmt
 }
 
-pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun> {
+pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
     typ_parser()
         .then(ident_parser())
         .then_ignore(just('(').padded())
@@ -122,7 +155,7 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun> {
                 .collect::<Vec<_>>(),
         )
         .then_ignore(just(')').padded())
-        .then(stmt_parser())
+        .then(block_parser())
         .map(|(((rtype, name), args), body)| Fun {
             rtype,
             name,
@@ -131,7 +164,7 @@ pub fn fun_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Fun> {
         })
 }
 
-pub fn program_parser<'src, 'tree>() -> impl Parser<'src, &'src str, Program> {
+pub fn program_parser<'src>() -> impl Parser<'src, &'src str, Program> {
     fun_parser()
         .repeated()
         .collect::<Vec<Fun>>()
