@@ -86,17 +86,17 @@ impl CompareBinop {
 ///     | fn call | []
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
-    Val(Value),
+    Val(Rc<Value>),
 
-    Neg(Box<Expr>),
-    ArithBinop(Box<Expr>, ArithBinop, Box<Expr>),
-    CompareBinop(Box<Expr>, CompareBinop, Box<Expr>),
+    Neg(Rc<Expr>),
+    ArithBinop(Rc<Expr>, ArithBinop, Rc<Expr>),
+    CompareBinop(Rc<Expr>, CompareBinop, Rc<Expr>),
 
     Var(Name),
 
     Call(Name, Vec<Expr>),
     Array(Vec<Expr>),
-    Index(Box<Expr>, Box<Expr>),
+    Index(Rc<Expr>, Rc<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -104,7 +104,7 @@ pub enum Type {
     IntT,
     BoolT,
     VoidT,
-    ArrayT(Box<Type>),
+    ArrayT(Rc<Type>),
 }
 
 /// # Statements
@@ -113,14 +113,15 @@ pub enum Type {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
-    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
-    Assign(Expr, Expr),
-    ExprStmt(Expr),
-    Decl(Type, Name, Option<Expr>),
-    Return(Option<Expr>),
+    If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
+    Assign(Rc<Expr>, Rc<Expr>),
+    ExprStmt(Rc<Expr>),
+    Decl(Type, Name, Option<Rc<Expr>>),
+    Return(Option<Rc<Expr>>),
     Block(BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>>),
-    While(Expr, Box<Stmt>),
+    //While(Expr, Rc<Stmt>),
     Break,
+    Goto(Rc<Stmt>),
     Continue,
 }
 

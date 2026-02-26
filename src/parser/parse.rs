@@ -92,14 +92,14 @@ where
             .or_not(),
     )
     .map(|(e, i)| match i {
-        Some(index) => Expr::Index(Box::new(e), Box::new(index)),
+        Some(index) => Expr::Index(Rc::new(e), Rc::new(index)),
         None => e,
     })
 }
 
 pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     fn make_arith(lhs: Expr, op: ArithBinop, rhs: Expr) -> Expr {
-        Expr::ArithBinop(Box::new(lhs), op, Box::new(rhs))
+        Expr::ArithBinop(Rc::new(lhs), op, Rc::new(rhs))
     }
 
     recursive(|expr| {
@@ -108,11 +108,11 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
         choice((
             atom.pratt((
                 infix(none(1), compare_binop_parser(), |l, op, r, _| {
-                    Expr::CompareBinop(Box::new(l), op, Box::new(r))
+                    Expr::CompareBinop(Rc::new(l), op, Rc::new(r))
                 }),
                 infix(left(2), add_sub_parser(), |l, o, r, _| make_arith(l, o, r)),
                 infix(left(3), mult_div_parser(), |l, o, r, _| make_arith(l, o, r)),
-                prefix(4, just('-').padded(), |_, e, _| Expr::Neg(Box::new(e))),
+                prefix(4, just('-').padded(), |_, e, _| Expr::Neg(Rc::new(e))),
             )),
             just('[')
                 .padded()
@@ -174,7 +174,7 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                         .ignore_then(block.clone())
                         .or_not(),
                 )
-                .map(|((cond, t), f)| Stmt::If(cond, Box::new(t), f.map(Box::new))),
+                .map(|((cond, t), f)| Stmt::If(cond, Rc::new(t), f.map(Rc::new))),
 
             text::ascii::keyword("while")
                 .padded()
@@ -182,7 +182,7 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .ignore_then(exp_parser())
                 .then_ignore(just(')').padded())
                 .then(block.clone())
-                .map(|(cond, t)| Stmt::While(cond, Box::new(t))),
+                .map(|(cond, t)| Stmt::While(cond, Rc::new(t))),
 
             text::ascii::keyword("return")
                 .padded()
