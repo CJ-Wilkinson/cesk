@@ -49,24 +49,28 @@ pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, CompareBinop
     ))
 }
 
-fn atomic_exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
+fn atomic_exp_parser<'src, P>(expr: P) -> impl Parser<'src, &'src str, Expr> + Clone
+where
+    P: Parser<'src, &'src str, Expr> + Clone + 'src,
+{
     let int = text::int(10)
         .map(|s: &str| Value::IntV(s.parse().unwrap()))
         .padded();
+
     let true_v = text::ascii::keyword("true").padded().to(Value::BoolV(true));
-    let false_v = text::ascii::keyword("false")
-        .padded()
-        .to(Value::BoolV(false));
+    let false_v = text::ascii::keyword("false").padded().to(Value::BoolV(false));
     let bool_v = choice((true_v, false_v));
 
     let value = choice((int, bool_v));
+
     choice((
-        value.map(|v| Expr::Val(v)),
+        value.map(Expr::Val),
+
         ident_parser()
             .then(
                 just('(')
                     .padded()
-                    .ignore_then(exp_parser().separated_by(just(',')).collect::<Vec<_>>())
+                    .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
                     .then_ignore(just(')').padded())
                     .or_not(),
             )
@@ -74,15 +78,16 @@ fn atomic_exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
                 Some(a) => Expr::Call(n, a),
                 None => Expr::Var(n),
             }),
+
         just('(')
             .padded()
-            .ignore_then(exp_parser())
+            .ignore_then(expr.clone())
             .then_ignore(just(')').padded()),
     ))
     .then(
         just('[')
             .padded()
-            .ignore_then(exp_parser())
+            .ignore_then(expr)
             .then_ignore(just(']').padded())
             .or_not(),
     )
@@ -96,9 +101,12 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     fn make_arith(lhs: Expr, op: ArithBinop, rhs: Expr) -> Expr {
         Expr::ArithBinop(Box::new(lhs), op, Box::new(rhs))
     }
-    let expr = recursive(|expr| {
+
+    recursive(|expr| {
+        let atom = atomic_exp_parser(expr.clone());
+
         choice((
-            atomic_exp_parser().pratt((
+            atom.pratt((
                 infix(none(1), compare_binop_parser(), |l, op, r, _| {
                     Expr::CompareBinop(Box::new(l), op, Box::new(r))
                 }),
@@ -110,78 +118,91 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
                 .padded()
                 .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
                 .then_ignore(just(']'))
-                .map(|exprs| Expr::Array(exprs)),
+                .map(Expr::Array),
         ))
-    });
-    expr
+    })
 }
 
-pub fn block_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
+fn block_parser<'src, P>(stmt: P) -> impl Parser<'src, &'src str, Stmt> + Clone
+where
+    P: Parser<'src, &'src str, Stmt> + Clone + 'src,
+{
     just('{')
         .padded()
-        .ignore_then(stmt_parser().repeated().collect::<Vec<_>>().map(|stmts| {
-            Stmt::Block(
-                stmts
-                    .into_iter()
-                    .map(|s| {
-                        let next: Option<Rc<Stmt>> = None;
-                        (Rc::new(s), next)
-                    })
-                    .collect(),
-            )
-        }))
+        .ignore_then(
+            stmt.repeated().collect::<Vec<_>>().map(|stmts| {
+                Stmt::Block(
+                    stmts
+                        .into_iter()
+                        .map(|s| {
+                            let next: Option<Rc<Stmt>> = None;
+                            (Rc::new(s), next)
+                        })
+                        .collect(),
+                )
+            }),
+        )
         .then_ignore(just('}').padded())
 }
 
 pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
-    // TODO other Stmt variants
-    let stmt = recursive(|_stmt| {
+    recursive(|stmt| {
+        let block = block_parser(stmt.clone());
+
         choice((
-            exp_parser()
-                .then_ignore(just(';'))
-                .map(|e| Stmt::ExprStmt(e)),
             exp_parser()
                 .then_ignore(just('=').padded())
                 .then(exp_parser())
                 .then_ignore(just(';').padded())
                 .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
-            block_parser(),
+
+            exp_parser()
+                .then_ignore(just(';').padded())
+                .map(Stmt::ExprStmt),
+
+            block.clone(),
+
             text::ascii::keyword("if")
                 .padded()
                 .ignore_then(just('(').padded())
                 .ignore_then(exp_parser())
                 .then_ignore(just(')').padded())
-                .then(block_parser())
+                .then(block.clone())
                 .then(
                     text::ascii::keyword("else")
                         .padded()
-                        .ignore_then(block_parser())
+                        .ignore_then(block.clone())
                         .or_not(),
                 )
-                .map(|((cond, t), f)| Stmt::If(cond, Box::new(t), f.map(|s| Box::new(s)))),
+                .map(|((cond, t), f)| Stmt::If(cond, Box::new(t), f.map(Box::new))),
+
             text::ascii::keyword("while")
                 .padded()
                 .ignore_then(just('(').padded())
                 .ignore_then(exp_parser())
                 .then_ignore(just(')').padded())
-                .then(block_parser())
+                .then(block.clone())
                 .map(|(cond, t)| Stmt::While(cond, Box::new(t))),
+
             text::ascii::keyword("return")
                 .padded()
                 .ignore_then(exp_parser().or_not())
                 .then_ignore(just(';').padded())
-                .map(|exp| Stmt::Return(exp)),
+                .map(Stmt::Return),
+
             typ_parser()
                 .then(ident_parser())
                 .then(just('=').padded().ignore_then(exp_parser()).or_not())
                 .then_ignore(just(';').padded())
                 .map(|((typ, name), init)| Stmt::Decl(typ, name, init)),
         ))
-    });
-    stmt
+    })
 }
 
-pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
+pub fn fun_parser<'src, P>(stmt: P) -> impl Parser<'src, &'src str, Fun> + Clone
+where
+    P: Parser<'src, &'src str, Stmt> + Clone + 'src,
+{
     typ_parser()
         .then(ident_parser())
         .then_ignore(just('(').padded())
@@ -191,7 +212,7 @@ pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
                 .collect::<Vec<_>>(),
         )
         .then_ignore(just(')').padded())
-        .then(block_parser())
+        .then(block_parser(stmt))
         .map(|(((rtype, name), args), body)| Fun {
             rtype,
             name,
@@ -201,7 +222,9 @@ pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
 }
 
 pub fn program_parser<'src>() -> impl Parser<'src, &'src str, Program> {
-    fun_parser()
+    let stmt = stmt_parser();
+
+    fun_parser(stmt)
         .repeated()
         .collect::<Vec<Fun>>()
         .map(|funs| Program { funs })
