@@ -1,33 +1,8 @@
 use std::collections::BTreeMap;
-//use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Name(pub String);
-
-//#[derive(Debug, Clone, Eq, PartialOrd, Ord)]
-//pub struct Ref<'tree>(pub &'tree Stmt);
-//
-//impl<'tree> Ref<'tree> {
-//    fn as_usize(&self) -> usize {
-//        self.0 as *const Stmt as usize
-//    }
-//}
-
-//impl<'tree> Hash for Ref<'tree> {
-//    fn hash<H>(&self, hasher: &mut H)
-//    where
-//        H: Hasher,
-//    {
-//        hasher.write_usize(self.as_usize());
-//    }
-//}
-//
-//impl<'tree> PartialEq for Ref<'tree> {
-//    fn eq(&self, other: &Ref<'tree>) -> bool {
-//        self.as_usize() == other.as_usize()
-//    }
-//}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Value {
@@ -37,7 +12,7 @@ pub enum Value {
     ArrayV(Vec<Value>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ArithBinop {
     Add,
     Mult,
@@ -47,13 +22,17 @@ pub enum ArithBinop {
 }
 
 impl ArithBinop {
-    pub fn call(&self, lhs: i32, rhs: i32) -> i32 {
-        match self {
-            Self::Add => lhs + rhs,
-            Self::Sub => lhs - rhs,
-            Self::Mult => lhs * rhs,
-            Self::Div => lhs / rhs,
-            Self::Rem => lhs % rhs,
+    pub fn call(&self, lhs: &Value, rhs: &Value) -> Value {
+        if let (Value::IntV(lhs), Value::IntV(rhs)) = (lhs, rhs) {
+            Value::IntV(match self {
+                Self::Add => lhs + rhs,
+                Self::Sub => lhs - rhs,
+                Self::Mult => lhs * rhs,
+                Self::Div => lhs / rhs,
+                Self::Rem => lhs % rhs,
+            })
+        } else {
+            panic!("Type mismatch for operation: {:?}", self)
         }
     }
 }
@@ -89,8 +68,8 @@ pub enum Expr {
     Val(Rc<Value>),
 
     Neg(Rc<Expr>),
-    ArithBinop(Rc<Expr>, ArithBinop, Rc<Expr>),
-    CompareBinop(Rc<Expr>, CompareBinop, Rc<Expr>),
+    ArithOp(Rc<Expr>, ArithBinop, Rc<Expr>),
+    CompareOp(Rc<Expr>, CompareBinop, Rc<Expr>),
 
     Var(Name),
 
@@ -99,13 +78,13 @@ pub enum Expr {
     Index(Rc<Expr>, Rc<Expr>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Type {
-    IntT,
-    BoolT,
-    VoidT,
-    ArrayT(Rc<Type>),
-}
+// #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+// pub enum Type {
+//     IntT,
+//     BoolT,
+//     VoidT,
+//     ArrayT,
+// }
 
 /// # Statements
 /// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
@@ -116,10 +95,9 @@ pub enum Stmt {
     If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
     Assign(Rc<Expr>, Rc<Expr>),
     ExprStmt(Rc<Expr>),
-    Decl(Type, Name, Option<Rc<Expr>>),
+    Decl(Name, Option<Rc<Expr>>),
     Return(Option<Rc<Expr>>),
     Block(BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>>),
-    //While(Expr, Rc<Stmt>),
     Break,
     Goto(Rc<Stmt>),
     Continue,
@@ -139,56 +117,12 @@ pub struct Stmt {
 /// a function consists of a return type, a name, a list of args, and a body statement
 #[derive(Debug, Clone)]
 pub struct Fun {
-    pub rtype: Type,
     pub name: Name,
-    pub args: Vec<(Type, Name)>,
+    pub args: Vec<Name>,
     pub body: Stmt,
 }
 
 #[derive(Debug, Clone)]
 pub struct Program {
     pub funs: Vec<Fun>,
-}
-
-#[cfg(test)]
-mod tests {
-    /*
-    use super::*;
-
-    #[test]
-    fn make_block() {
-        let contents = vec![
-            Stmt {
-                contents: StmtContents::Decl(Type::IntT, Name("x".to_string()), None),
-                label: None,
-                successor: None,
-                parent: None,
-            },
-            Stmt {
-                contents: StmtContents::Decl(Type::IntT, Name("y".to_string()), None),
-                label: None,
-                successor: None,
-                parent: None,
-            },
-        ];
-        let node = Stmt {
-            label: None,
-            contents: StmtContents::Block(contents),
-            successor: None,
-            parent: None,
-        };
-        println!("Block Node: {:?}", node);
-        match node {
-            Stmt {
-                contents: StmtContents::Block(s, m),
-                ..
-            } => {
-                assert!(m[&0usize] == Some(1usize));
-                assert!(m[&1usize] == None);
-                assert!(s.len() == 2);
-            }
-            _ => assert!(false),
-        }
-    }
-    */
 }
