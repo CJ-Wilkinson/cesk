@@ -13,32 +13,12 @@ pub enum Value {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum ArithBinop {
+pub enum Operation {
     Add,
     Mult,
     Sub,
     Div,
     Rem,
-}
-
-impl ArithBinop {
-    pub fn call(&self, lhs: &Value, rhs: &Value) -> Value {
-        if let (Value::IntV(lhs), Value::IntV(rhs)) = (lhs, rhs) {
-            Value::IntV(match self {
-                Self::Add => lhs + rhs,
-                Self::Sub => lhs - rhs,
-                Self::Mult => lhs * rhs,
-                Self::Div => lhs / rhs,
-                Self::Rem => lhs % rhs,
-            })
-        } else {
-            panic!("Type mismatch for operation: {:?}", self)
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum CompareBinop {
     Eq,
     Neq,
     Lt,
@@ -47,18 +27,51 @@ pub enum CompareBinop {
     Gte,
 }
 
-impl CompareBinop {
-    pub fn call(&self, lhs: i32, rhs: i32) -> bool {
-        match self {
-            Self::Eq => lhs == rhs,
-            Self::Neq => lhs != rhs,
-            Self::Lt => lhs < rhs,
-            Self::Gt => lhs > rhs,
-            Self::Lte => lhs <= rhs,
-            Self::Gte => lhs >= rhs,
+impl Operation {
+    pub fn call(&self, lhs: &Value, rhs: &Value) -> Value {
+        if let (Value::IntV(lhs), Value::IntV(rhs)) = (lhs, rhs) {
+            match self {
+                Self::Add => Value::IntV(lhs + rhs),
+                Self::Sub => Value::IntV(lhs - rhs),
+                Self::Mult => Value::IntV(lhs * rhs),
+                Self::Div => Value::IntV(lhs / rhs),
+                Self::Rem => Value::IntV(lhs % rhs),
+
+                Self::Eq => Value::BoolV(lhs == rhs),
+                Self::Neq => Value::BoolV(lhs != rhs),
+                Self::Lt => Value::BoolV(lhs < rhs),
+                Self::Gt => Value::BoolV(lhs > rhs),
+                Self::Lte => Value::BoolV(lhs <= rhs),
+                Self::Gte => Value::BoolV(lhs >= rhs),
+            }
+        } else {
+            panic!("Type mismatch for operation: {:?}", self)
         }
     }
 }
+
+// #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+// pub enum CompareBinop {
+//     Eq,
+//     Neq,
+//     Lt,
+//     Gt,
+//     Lte,
+//     Gte,
+// }
+
+// impl CompareBinop {
+//     pub fn call(&self, lhs: i32, rhs: i32) -> bool {
+//         match self {
+//             Self::Eq => lhs == rhs,
+//             Self::Neq => lhs != rhs,
+//             Self::Lt => lhs < rhs,
+//             Self::Gt => lhs > rhs,
+//             Self::Lte => lhs <= rhs,
+//             Self::Gte => lhs >= rhs,
+//         }
+//     }
+// }
 
 /// # Expressions
 /// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
@@ -68,14 +81,15 @@ pub enum Expr {
     Val(Rc<Value>),
 
     Neg(Rc<Expr>),
-    ArithOp(Rc<Expr>, ArithBinop, Rc<Expr>),
-    CompareOp(Rc<Expr>, CompareBinop, Rc<Expr>),
-
+    Op(Rc<Expr>, Operation, Rc<Expr>),
+    //CompareOp(Rc<Expr>, CompareBinop, Rc<Expr>),
     Var(Name),
 
     Call(Name, Vec<Expr>),
     Array(Vec<Expr>),
-    Index(Rc<Expr>, Rc<Expr>),
+    Index(Name, Rc<Expr>),
+    Deref(Rc<Expr>),
+    Ref(Name),
 }
 
 // #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
