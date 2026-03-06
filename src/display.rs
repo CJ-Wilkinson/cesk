@@ -64,30 +64,30 @@ impl Display for Stmt {
         match self {
             Self::If(tr, bl, fal) => {
                 match fal {
-                    Some(fal) => write!(f, "if({}) {} else {}", tr, bl, fal),
+                    Some(fal) => write!(f, "if({}){{ {} }} else{{ {} }}", tr, bl, fal),
                     None => write!(f, "if({}) {}", tr, bl),
                 }
             },
-            Self::Assign(var, val) => write!(f, "{} = {}", var, val),
-            Self::ExprStmt(ex) => write!(f, "{}", ex),
+            Self::Assign(var, val) => write!(f, "{} = {};", var, val),
+            Self::ExprStmt(ex) => write!(f, "{};", ex),
             Self::Decl(n, val) => {
                 match val {
-                    Some(v) => write!(f, "{} = {}", n, v),
-                    None => write!(f, "{}", n),
+                    Some(v) => write!(f, "{} = {};", n, v),
+                    None => write!(f, "{};", n),
                 }
             },
             Self::Return(ex) => {
                 match ex {
-                    Some(e) => write!(f, "return {}", e),
-                    None => write!(f, "return"),
+                    Some(e) => write!(f, "return {};", e),
+                    None => write!(f, "return;"),
                 }
             },
             Self::Block(btree) => {
                 write!(f, "{{ {:?} }}", btree.keys().clone())
             },
-            Self::Break => write!(f, "break"),
-            Self::Goto(st) => write!(f, "goto: {}", st),
-            Self::Continue => write!(f, "continue"),
+            Self::Break => write!(f, "break;"),
+            Self::Goto(st) => write!(f, "goto: {};", st),
+            Self::Continue => write!(f, "continue;"),
         }
     }
 }
