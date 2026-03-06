@@ -1,4 +1,4 @@
-use crate::ast::{ArithBinop, Expr, Name, Stmt, Value};
+use crate::ast::{Expr, Name, Operation, Stmt, Value};
 use Control::*;
 use Expr::*;
 use Kont::*;
@@ -24,7 +24,8 @@ type Store = HashMap<Address, Value>;
 enum Kont {
     Mt,
     ExprStmtK(Rc<Kont>),
-    ArithK(ArithBinop, Rc<Expr>, Rc<Kont>),
+    OpK(Operation, Rc<Expr>, Rc<Kont>),
+    IfK(Rc<Stmt>, Option<Rc<Stmt>>, Rc<Stmt>, Rc<Kont>), // Missing successor!
 }
 
 #[derive(Debug)]
@@ -44,6 +45,10 @@ impl From<Stmt> for Config {
             k: Rc::new(Mt),
         }
     }
+}
+
+fn successor_lookup(_key: Rc<Stmt>) -> Rc<Stmt> {
+    Rc::new(Break)
 }
 
 impl From<Expr> for Config {
@@ -80,23 +85,39 @@ impl Config {
             AstStmt(s) => {
                 // Match on statement
                 match s.as_ref() {
+                    // Expression Statement
                     ExprStmt(expr) => Self {
                         c: AstExpr(Rc::clone(expr)),
                         e: Rc::clone(&self.e),
                         s: Rc::clone(&self.s),
                         k: Rc::new(ExprStmtK(Rc::clone(&self.k))),
                     },
+                    // If statement
+                    If(expr, true_b, false_b) => Self {
+                        c: AstExpr(Rc::clone(expr)),
+                        e: Rc::clone(&self.e),
+                        s: Rc::clone(&self.s),
+                        k: Rc::new(IfK(
+                            Rc::clone(true_b),
+                            match false_b {
+                                Some(false_b) => Some(Rc::clone(false_b)),
+                                None => None,
+                            },
+                            Rc::new(Break), // TODO: Successor function
+                            Rc::clone(&self.k),
+                        )),
+                    },
                     _ => todo!(),
                 }
             }
             AstExpr(e) => match e.as_ref() {
-                ArithOp(l, op, r) => {
+                Op(l, op, r) => {
                     if let (Val(l), Val(r)) = (l.as_ref(), r.as_ref()) {
                         self.new_c(AstExpr(Rc::new(Val(Rc::new(op.call(l, r))))))
                     } else {
                         self.no_change_map(
                             AstExpr(Rc::clone(l)),
-                            ArithK(*op, Rc::clone(r), Rc::clone(&self.k)),
+                            OpK(*op, Rc::clone(r), Rc::clone(&self.k)),
                         )
                     }
                 }
@@ -107,7 +128,7 @@ impl Config {
     }
     fn invoke_kont(&self, v1: &Rc<Value>) -> Config {
         match self.k.as_ref() {
-            ArithK(op, expr, k) => {
+            OpK(op, expr, k) => {
                 // Is the expression a value?
                 match expr.as_ref() {
                     Val(v2) => Self {
@@ -120,7 +141,7 @@ impl Config {
                         c: AstExpr(Rc::clone(expr)),
                         e: Rc::clone(&self.e),
                         s: Rc::clone(&self.s),
-                        k: Rc::new(ArithK(
+                        k: Rc::new(OpK(
                             *op,
                             match &self.c {
                                 AstExpr(expr) => Rc::clone(expr),
@@ -131,6 +152,19 @@ impl Config {
                     },
                 }
             }
+            IfK(true_b, false_b, succ, k) => Self {
+                c: AstStmt(Rc::clone(match v1.as_ref() {
+                    BoolV(true) => true_b,
+                    BoolV(false) => match false_b {
+                        Some(false_b) => false_b,
+                        None => succ,
+                    },
+                    _ => panic!(),
+                })),
+                e: Rc::clone(&self.e),
+                s: Rc::clone(&self.s),
+                k: Rc::clone(k),
+            },
             _ => todo!(),
         }
     }
@@ -146,7 +180,7 @@ mod tests {
                     if *conf.k == Mt {
                         Some(Rc::clone(v))
                     } else {
-                    	None
+                        None
                     }
                 }
                 _ => None,
@@ -158,25 +192,25 @@ mod tests {
     #[test]
     fn arith_test() {
         // Not a real test. Runs a basic arithmetic expression
-        let ast = ArithOp(
+        let ast = Op(
             Rc::new(Val(Rc::new(IntV(9)))),
-            ArithBinop::Add,
-            Rc::new(ArithOp(
-                Rc::new(Val(Rc::new(IntV(10)))),
-                ArithBinop::Mult,
-                Rc::new(Val(Rc::new(IntV(11)))),
+            Operation::Add,
+            Rc::new(Op(
+                Rc::new(Val(Rc::new(IntV(27)))),
+                Operation::Div,
+                Rc::new(Val(Rc::new(IntV(9)))),
             )),
         );
         let mut conf = Config::from(ast);
         loop {
-            //println!("{:?}", conf);
+            println!("{:?}", conf);
             conf = conf.next();
             match is_terminal(&conf) {
                 Some(v) => {
-                	println!("Got: {:?}", v);
-                	assert_eq!(IntV(119), *v);
-                	return;
-                },
+                    println!("Got: {:?}", v);
+                    assert_eq!(IntV(12), *v);
+                    return;
+                }
                 None => (),
             }
         }
