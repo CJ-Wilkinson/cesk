@@ -7,9 +7,12 @@ use Value::*;
 use std::collections::HashMap;
 use std::convert::From;
 use std::rc::Rc;
+use std::fmt;
 
-#[derive(Debug)]
-struct Address;
+#[derive(Debug, Eq, Hash, PartialEq, Clone)]
+struct Address {
+    a: usize,
+}
 
 #[derive(Debug)]
 enum Control {
@@ -17,8 +20,67 @@ enum Control {
     AstStmt(Rc<Stmt>),
 }
 
-type Env = HashMap<Name, Address>;
-type Store = HashMap<Address, Value>;
+impl fmt::Display for Control {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			AstExpr(expr) => write!(f, "{}", expr),
+			AstStmt(stmt) => write!(f, "{}", stmt),
+		}
+	}
+}
+
+//type Env = HashMap<Name, Address>;
+#[derive(Debug, Clone, PartialEq)]
+struct Env (HashMap<Name, Address>);
+
+impl Env {
+	fn new() -> Self {
+		Self (
+			HashMap::new()
+		)
+	}
+}
+
+impl fmt::Display for Env {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "[")?;
+		for (index, (key, value)) in self.0.iter().enumerate() {
+			if index == self.0.len() {
+				write!(f, "{:?} -> {:?}", key, value)?;
+			} else {
+				write!(f, "{:?} -> {:?}, ", key, value)?;
+			}
+		}
+		write!(f, "]")
+	}
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct Store (HashMap<Address, Rc<Value>>);
+
+impl Store {
+	fn new() -> Self {
+		Self (
+			HashMap::new()
+		)
+	}
+}
+
+impl fmt::Display for Store {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "[")?;
+		//let mut index = 0;
+		for (index, (key, value)) in self.0.iter().enumerate() {
+			if index == self.0.len() {
+				write!(f, "{:?} -> {:?}", key, value)?;
+			} else {
+				write!(f, "{:?} -> {:?}, ", key, value)?;
+			}
+			//index += 1;
+		}
+		write!(f, "]")
+	}
+}
 
 #[derive(Debug, PartialEq)]
 enum Kont {
@@ -26,6 +88,7 @@ enum Kont {
     ExprStmtK(Rc<Kont>),
     OpK(Operation, Rc<Expr>, Rc<Kont>),
     IfK(Rc<Stmt>, Option<Rc<Stmt>>, Rc<Stmt>, Rc<Kont>), // Missing successor!
+    DeclK(Name, Rc<Stmt>, Rc<Kont>),
 }
 
 #[derive(Debug)]
@@ -36,18 +99,24 @@ struct Config {
     k: Rc<Kont>,
 }
 
+impl fmt::Display for Config {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		writeln!(f, "<{}, {}, {}, {:?}>", self.c, self.e, self.s, self.k)
+	}
+}
+
 impl From<Stmt> for Config {
     fn from(s: Stmt) -> Self {
         Self {
             c: AstStmt(Rc::new(s)),
-            e: Rc::new(HashMap::new()),
-            s: Rc::new(HashMap::new()),
+            e: Rc::new(Env::new()),
+            s: Rc::new(Store::new()),
             k: Rc::new(Mt),
         }
     }
 }
 
-fn successor_lookup(_key: Rc<Stmt>) -> Rc<Stmt> {
+fn successor_lookup() -> Rc<Stmt> {
     Rc::new(Break)
 }
 
@@ -55,8 +124,8 @@ impl From<Expr> for Config {
     fn from(e: Expr) -> Self {
         Self {
             c: AstExpr(Rc::new(e)),
-            e: Rc::new(HashMap::new()),
-            s: Rc::new(HashMap::new()),
+            e: Rc::new(Env::new()),
+            s: Rc::new(Store::new()),
             k: Rc::new(Mt),
         }
     }
@@ -103,7 +172,20 @@ impl Config {
                                 Some(false_b) => Some(Rc::clone(false_b)),
                                 None => None,
                             },
-                            Rc::new(Break), // TODO: Successor function
+                            successor_lookup(), // TODO: Successor function
+                            Rc::clone(&self.k),
+                        )),
+                    },
+                    Decl(id, expr) => Self {
+                        c: match expr {
+                            Some(expr) => AstExpr(Rc::clone(expr)),
+                            None => AstExpr(Rc::new(Val(Rc::new(VoidV)))),
+                        },
+                        e: Rc::clone(&self.e),
+                        s: Rc::clone(&self.s),
+                        k: Rc::new(DeclK(
+                            id.clone(),         // TODO should be copy?
+                            successor_lookup(), // TODO: Successor function
                             Rc::clone(&self.k),
                         )),
                     },
@@ -165,6 +247,24 @@ impl Config {
                 s: Rc::clone(&self.s),
                 k: Rc::clone(k),
             },
+            DeclK(id, succ, k) => {
+                // Get new address
+                let addr = Address { a: 0 };
+                Self {
+                    c: AstStmt(Rc::clone(succ)),
+                    e: {
+                        let mut new_env = (*self.e).clone();
+                        new_env.0.insert(id.clone(), addr.clone());
+                        Rc::new(new_env)
+                    },
+                    s: {
+                        let mut new_store = (*self.s).clone();
+                        new_store.0.insert(addr.clone(), Rc::clone(v1));
+                        Rc::new(new_store)
+                    },
+                    k: Rc::clone(k),
+                }
+            }
             _ => todo!(),
         }
     }
@@ -192,18 +292,36 @@ mod tests {
     #[test]
     fn arith_test() {
         // Not a real test. Runs a basic arithmetic expression
-        let ast = Op(
-            Rc::new(Val(Rc::new(IntV(9)))),
-            Operation::Add,
+        // let ast = Op(
+        //     Rc::new(Val(Rc::new(IntV(9)))),
+        //     Operation::Add,
+        //     Rc::new(Op(
+        //         Rc::new(Val(Rc::new(IntV(27)))),
+        //         Operation::Div,
+        //         Rc::new(Val(Rc::new(IntV(9)))),
+        //     )),
+        // );
+        let ast = If(
             Rc::new(Op(
-                Rc::new(Val(Rc::new(IntV(27)))),
-                Operation::Div,
-                Rc::new(Val(Rc::new(IntV(9)))),
+                Rc::new(Val(Rc::new(IntV(3)))),
+                Operation::Lt,
+                Rc::new(Val(Rc::new(IntV(4)))),
             )),
+            Rc::new(Decl(Name("Hi".to_string()), Some(Rc::new(Op(
+                Rc::new(Val(Rc::new(IntV(9)))),
+                Operation::Add,
+                Rc::new(Op(
+                    Rc::new(Val(Rc::new(IntV(27)))),
+                    Operation::Div,
+                    Rc::new(Val(Rc::new(IntV(9)))),
+                )),
+            ))))),
+            None,
         );
         let mut conf = Config::from(ast);
         loop {
-            println!("{:?}", conf);
+            println!("{}", conf);
+            //print!("c: {}, e: {}, s: {}, k: {}")
             conf = conf.next();
             match is_terminal(&conf) {
                 Some(v) => {
