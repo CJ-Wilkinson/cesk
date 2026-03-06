@@ -9,7 +9,7 @@ pub enum Value {
     IntV(i32),
     BoolV(bool),
     VoidV,
-    ArrayV(Vec<Value>),
+    // ArrayV(Vec<Value>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
