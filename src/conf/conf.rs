@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Name, Operation, Stmt, Value};
+use crate::ast::{Expr, Name, Operation, Stmt, Value, ParamList, Arguments};
 use Control::*;
 use Expr::*;
 use Kont::*;
@@ -82,6 +82,10 @@ impl fmt::Display for Store {
 	}
 }
 
+fn function_lookup(_fn_name: Name) -> (Rc<Stmt>, Rc<Vec<Expr>>) {
+	todo!()
+}
+
 #[derive(Debug, PartialEq)]
 enum Kont {
     Mt,
@@ -89,6 +93,10 @@ enum Kont {
     OpK(Operation, Rc<Expr>, Rc<Kont>),
     IfK(Rc<Stmt>, Option<Rc<Stmt>>, Rc<Stmt>, Rc<Kont>), // Missing successor!
     DeclK(Name, Rc<Stmt>, Rc<Kont>),
+    ReturnK(Rc<Env>, Rc<Kont>),
+    CallK(Rc<Env>, Rc<ParamList>, Rc<Arguments>, Rc<Kont>),
+    FunK(Rc<Env>, Rc<Kont>),
+    BlocK(Rc<Env>, Rc<Stmt>, Rc<Kont>),
 }
 
 #[derive(Debug)]
@@ -179,7 +187,7 @@ impl Config {
                     Decl(id, expr) => Self {
                         c: match expr {
                             Some(expr) => AstExpr(Rc::clone(expr)),
-                            None => AstExpr(Rc::new(Val(Rc::new(VoidV)))),
+                            None => AstExpr(Rc::new(Val(Rc::new(UnitV)))),
                         },
                         e: Rc::clone(&self.e),
                         s: Rc::clone(&self.s),
@@ -189,7 +197,44 @@ impl Config {
                             Rc::clone(&self.k),
                         )),
                     },
-                    _ => todo!(),
+                    Assign(_, _) => todo!(),
+       //              Return(expr) => {
+       //              	let mut k = Rc::clone(&self.k);
+       //              	while let BlockK(_, _, inner_k) = k.as_ref() {
+       //              		k = Rc::clone(inner_k);
+       //              	}
+       //              	if let ReturnK(_, _, _) = k.as_ref() {
+							// Self {
+							// 	c: AstExpr(Rc::clone(expr)),
+							// 	e: Rc::clone(&self.e),
+							// 	s: Rc::clone(&self.s),
+							// 	k: Rc::clone(&k),
+							// }
+       //              	} else {
+       //              		panic!()
+       //              	}
+       //              }
+                    Return(expr) => {
+						match self.k.as_ref() {
+							BlocK(_, _, k) => Self {
+								c: AstExpr(expr.clone()),
+								e: self.e.clone(),
+								s: self.s.clone(),
+								k: k.clone()
+							},
+							ReturnK(_, _) => Self {
+								c: AstExpr(expr.clone()),
+								e: self.e.clone(),
+								s: self.s.clone(),
+								k: self.k.clone(),
+							},
+							_ => panic!("Found some other Kont"), 
+						}
+                    } 
+                    Block(_) => todo!(),
+                    Break => todo!(),
+                    Goto(_) => todo!(),
+                    Continue => todo!(),
                 }
             }
             AstExpr(e) => match e.as_ref() {
@@ -265,6 +310,12 @@ impl Config {
                     k: Rc::clone(k),
                 }
             }
+            ReturnK(env, k) => Self {
+            	c: AstExpr(Rc::new(Expr::Val(v1.clone()))),
+            	e: env.clone(),
+            	s: self.s.clone(),
+            	k: k.clone(),
+            },
             _ => todo!(),
         }
     }
