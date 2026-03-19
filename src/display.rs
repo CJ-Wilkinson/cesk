@@ -1,13 +1,12 @@
-use std::fmt::{Display, Formatter, Error};
 use crate::ast::*;
+use std::fmt::{Display, Error, Formatter};
 
 impl Display for Value {
-    fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
             Self::IntV(x) => write!(f, "{}", x),
             Self::BoolV(b) => write!(f, "{}", b),
             Self::UnitV => write!(f, "()"),
-
             // Self::ArrayV(vec) => {
             //     let mut s = String::new();
             //     for elem in vec {
@@ -20,13 +19,13 @@ impl Display for Value {
 }
 
 impl Display for Name {
-    fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         write!(f, "{}", self.0)
     }
 }
 
 impl Display for Operation {
-    fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
             Self::Add => write!(f, "+"),
             Self::Mult => write!(f, "*"),
@@ -44,7 +43,7 @@ impl Display for Operation {
 }
 
 impl Display for Expr {
-    fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
             Self::Val(v) => write!(f, "{}", v),
             Self::Neg(ex) => write!(f, "{}", ex),
@@ -60,44 +59,40 @@ impl Display for Expr {
 }
 
 impl Display for Type {
-	fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
-		use Type::*;
-		match self {
-			IntT => write!(f, "int"),
-			BoolT => write!(f, "int"),
-			UnitT => write!(f, "int"),
-			ArrayT(t) => write!(f, "{}[]", t),
-		}
-	}
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        use Type::*;
+        match self {
+            IntT => write!(f, "int"),
+            BoolT => write!(f, "int"),
+            UnitT => write!(f, "int"),
+            ArrayT(t) => write!(f, "{}[]", t),
+        }
+    }
 }
 
 impl Display for Stmt {
-    fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
-            Self::If(tr, bl, fal) => {
-                match fal {
-                    Some(fal) => write!(f, "if({}){{ {} }} else{{ {} }}", tr, bl, fal),
-                    None => write!(f, "if({}) {}", tr, bl),
-                }
+            Self::If(tr, bl, fal) => match fal {
+                Some(fal) => write!(f, "if({}){{ {} }} else{{ {} }}", tr, bl, fal),
+                None => write!(f, "if({}) {}", tr, bl),
             },
             Self::Assign(var, val) => write!(f, "{} = {};", var, val),
             Self::ExprStmt(ex) => write!(f, "{};", ex),
-            Self::DeclD(t, n, val) => {
-                match val {
-                    Some(v) => write!(f, "{} {} = {};", t, n, v),
-                    None => write!(f, "{} {};", t, n),
-                }
+            Self::DeclD(t, n, val) => match val {
+                Some(v) => write!(f, "{} {} = {};", t, n, v),
+                None => write!(f, "{} {};", t, n),
             },
             Self::Decl(n) => {
-            	write!(f, "{}", n.0)
+                write!(f, "{}", n.0)
             }
             Self::Return(ex) => {
                 write!(f, "return {}", ex)
-            },
+            }
             Self::Block(_v) => {
                 //write!(f, "{{ {:?} }}", btree.keys().clone())
                 write!(f, "")
-            },
+            }
             Self::Break => write!(f, "break;"),
             Self::Goto(st) => write!(f, "goto: {};", st),
             Self::Continue => write!(f, "continue;"),
@@ -107,7 +102,7 @@ impl Display for Stmt {
 }
 
 impl Display for ast::Fun {
-    fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
-        write!(f, "{}({:?}){{ {} }}", self.name, self.args, self.body)
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{}({:?}){{ {} }}", self.name, self.params, self.body)
     }
 }

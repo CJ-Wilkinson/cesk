@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::iter::Iterator;
 
 /*
 Name ::= [a-zA-z][a-zA-Z0-9_]*
@@ -39,7 +40,7 @@ pub enum Operation {
 impl Operation {
     pub fn call(&self, lhs: &Value, rhs: &Value) -> Value {
         if let (Value::IntV(lhs), Value::IntV(rhs)) = (lhs, rhs) {
-        	use Value::*;
+            use Value::*;
             match self {
                 Self::Add => IntV(lhs + rhs),
                 Self::Sub => IntV(lhs - rhs),
@@ -62,9 +63,9 @@ impl Operation {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
-	/*
-	Expr ::= <Val>
-	*/
+    /*
+    Expr ::= <Val>
+    */
     Val(Rc<Value>),
     /*
     Expr ::= '-' <Expr>
@@ -81,7 +82,7 @@ pub enum Expr {
     /*
     Expr ::= <Name> <ParamList>
     */
-    Call(Name, ParamList),
+    Call(Name, Arguments),
     Array(Vec<Expr>),
     Index(Name, Rc<Expr>),
     Deref(Rc<Expr>),
@@ -105,70 +106,85 @@ pub enum Type {
     /*
     Type ::= '?'
     */
-    ArrayT(Box<Type>),
+    ArrayT(Rc<Type>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
-	/*
-	Declaration that will be desugared
-	DeclD ::= <Type> <Name> ('=' <Expr>)? ';'
-	*/
+    /*
+    Declaration that will be desugared
+    DeclD ::= <Type> <Name> ('=' <Expr>)? ';'
+    */
     DeclD(Type, Name, Option<Rc<Expr>>),
     /*
     For loop that will be desugared.
-	If ::= 'for' '(' <Expr> ';' <Expr> ';' <Expr> ')' <Stmt>
+    If ::= 'for' '(' <Expr> ';' <Expr> ';' <Expr> ')' <Stmt>
     */
     ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
-	/*
-	While ::= 'while' '(' <Expr> ')' <Stmt>
-	*/
-	WhileD(Rc<Expr>, Rc<Stmt>),
+    /*
+    While ::= 'while' '(' <Expr> ')' <Stmt>
+    */
+    WhileD(Rc<Expr>, Rc<Stmt>),
 
     // Rules used in CESK
     /*
-	The <If> statement will contain a conditional <Expr>, a true 
-	branch <Stmt> and an optional false branch <Stmt>.
-	If ::= 'if' '(' <Expr> ')' <Stmt> ('else' <Stmt>)?
+    The <If> statement will contain a conditional <Expr>, a true
+    branch <Stmt> and an optional false branch <Stmt>.
+    If ::= 'if' '(' <Expr> ')' <Stmt> ('else' <Stmt>)?
     */
     If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
     /*
-	The <Assign> will contain a assignment location (can be a variable or member of array) of <Expr>
-	and the thing to be assigned <Expr>.
+    The <Assign> will contain a assignment location (can be a variable or member of array) of <Expr>
+    and the thing to be assigned <Expr>.
     */
     Assign(Rc<Expr>, Rc<Expr>),
     /*
-	The <ExprStmt> will only contain some <Expr> to be evaluated.
-	ExprStmt ::= <Expr> ';'
+    The <ExprStmt> will only contain some <Expr> to be evaluated.
+    ExprStmt ::= <Expr> ';'
     */
     ExprStmt(Rc<Expr>),
     /*
-	The <Decl> will be what introduces a <Name> into the environment. No other information should
-	be needed since type checking should have occured.
-	
+    The <Decl> will be what introduces a <Name> into the environment. No other information should
+    be needed since type checking should have occured.
+
     */
     Decl(Name),
     /*
-	The <Return> will always return some <Expr>. This can be some value or Unit.
+    The <Return> will always return some <Expr>. This can be some value or Unit.
     */
     Return(Rc<Expr>),
     /*
-    The block will hold a vector of <Stmt>. 
+    The block will hold a vector of <Stmt>.
     Block ::= '{' <Stmt>* '}'
     */
     Block(Rc<Vec<Rc<Stmt>>>),
     /*
-	This <Goto> will hold its jump location <Stmt>.
+    This <Goto> will hold its jump location <Stmt>.
     */
     Goto(Rc<Stmt>),
     Continue,
     Break,
 }
 
+impl Iterator for Stmt {
+    type Item = Stmt;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Block(stmts) => {
+                let ret = stmts[0].clone();
+                *self = Self::Block(Rc::new(Vec::from(stmts[1..].as_ref())));
+                Some(ret)
+            },
+            _ => panic!("statement has no successors")
+        }
+    }
+}
+
+
 /*
 Arguments ::= '(' <Expr>* ')'
 */
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Arguments(pub Vec<Expr>);
 
 /*
@@ -182,9 +198,9 @@ Fun ::= <Type> <Name> <Arguments> <Body>
 */
 #[derive(Debug, Clone)]
 pub struct Fun {
-	pub typ: Type,
+    pub typ: Type,
     pub name: Name,
-    pub args: Arguments,
+    pub params: ParamList,
     pub body: Stmt,
 }
 
@@ -193,5 +209,28 @@ Program ::= <Fun>+
 */
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub funs: HashMap<Name, Fun>,
+    pub funs: BTreeMap<Name, Fun>,
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn block_iter() {
+        use Stmt::Block as Block;
+        use Stmt::Decl as Decl;
+
+        let dec = Decl(Name("x".to_string()));
+        let dec2 = Decl(Name("y".to_string()));
+
+        let mut bl = Block(Rc::new(vec![dec, dec2]));
+
+        assert_eq!(bl.next().unwrap(), Decl(Name("x".to_string())));
+        assert_eq!(bl.next().unwrap(), Decl(Name("y".to_string())));
+        // println!("bl: {:?}", bl.next());
+        // println!("bl: {:?}", bl.next());
+    }
 }
