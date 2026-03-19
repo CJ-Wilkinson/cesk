@@ -8,7 +8,7 @@ pub struct Name(pub String);
 pub enum Value {
     IntV(i32),
     BoolV(bool),
-    VoidV,
+    UnitV,
     // ArrayV(Vec<Value>),
 }
 
@@ -85,7 +85,7 @@ pub enum Expr {
     //CompareOp(Rc<Expr>, CompareBinop, Rc<Expr>),
     Var(Name),
 
-    Call(Name, Vec<Expr>),
+    Call(Name, ParamList),
     Array(Vec<Expr>),
     Index(Name, Rc<Expr>),
     Deref(Rc<Expr>),
@@ -104,13 +104,16 @@ pub enum Expr {
 /// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
 ///     | continue
 
+
+
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
     If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
     Assign(Rc<Expr>, Rc<Expr>),
     ExprStmt(Rc<Expr>),
     Decl(Name, Option<Rc<Expr>>),
-    Return(Option<Rc<Expr>>),
+    Return(Rc<Expr>),
     Block(BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>>),
     Break,
     Goto(Rc<Stmt>),
@@ -127,14 +130,22 @@ pub struct Stmt {
 }
 */
 
+#[derive(Debug, Clone)]
+pub struct Arguments(pub Vec<Expr>);
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ParamList(pub Vec<Name>);
+
 /// # Function
 /// a function consists of a return type, a name, a list of args, and a body statement
 #[derive(Debug, Clone)]
 pub struct Fun {
     pub name: Name,
-    pub args: Vec<Name>,
+    pub args: Arguments,
     pub body: Stmt,
 }
+
+// TODO: Change to HashMap
 
 #[derive(Debug, Clone)]
 pub struct Program {
