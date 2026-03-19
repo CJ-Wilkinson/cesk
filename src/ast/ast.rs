@@ -1,18 +1,27 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::iter::Iterator;
 
+/*
+Name ::= [a-zA-z][a-zA-Z0-9_]*
+*/
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Name(pub String);
 
+/*
+Fun ::= int-lit | true | false | '()'
+*/
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Value {
     IntV(i32),
     BoolV(bool),
     UnitV,
-    // ArrayV(Vec<Value>),
+    // TODO: Arrays
 }
 
+/*
+Operation ::= '+' | '*' | '-' | '/' | '%' | '==' | '!=' | '<' | '>' | '<=' | '>='
+*/
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Operation {
     Add,
@@ -31,19 +40,20 @@ pub enum Operation {
 impl Operation {
     pub fn call(&self, lhs: &Value, rhs: &Value) -> Value {
         if let (Value::IntV(lhs), Value::IntV(rhs)) = (lhs, rhs) {
+        	use Value::*;
             match self {
-                Self::Add => Value::IntV(lhs + rhs),
-                Self::Sub => Value::IntV(lhs - rhs),
-                Self::Mult => Value::IntV(lhs * rhs),
-                Self::Div => Value::IntV(lhs / rhs),
-                Self::Rem => Value::IntV(lhs % rhs),
+                Self::Add => IntV(lhs + rhs),
+                Self::Sub => IntV(lhs - rhs),
+                Self::Mult => IntV(lhs * rhs),
+                Self::Div => IntV(lhs / rhs),
+                Self::Rem => IntV(lhs % rhs),
 
-                Self::Eq => Value::BoolV(lhs == rhs),
-                Self::Neq => Value::BoolV(lhs != rhs),
-                Self::Lt => Value::BoolV(lhs < rhs),
-                Self::Gt => Value::BoolV(lhs > rhs),
-                Self::Lte => Value::BoolV(lhs <= rhs),
-                Self::Gte => Value::BoolV(lhs >= rhs),
+                Self::Eq => BoolV(lhs == rhs),
+                Self::Neq => BoolV(lhs != rhs),
+                Self::Lt => BoolV(lhs < rhs),
+                Self::Gt => BoolV(lhs > rhs),
+                Self::Lte => BoolV(lhs <= rhs),
+                Self::Gte => BoolV(lhs >= rhs),
             }
         } else {
             panic!("Type mismatch for operation: {:?}", self)
@@ -51,75 +61,143 @@ impl Operation {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-// pub enum CompareBinop {
-//     Eq,
-//     Neq,
-//     Lt,
-//     Gt,
-//     Lte,
-//     Gte,
-// }
-
-// impl CompareBinop {
-//     pub fn call(&self, lhs: i32, rhs: i32) -> bool {
-//         match self {
-//             Self::Eq => lhs == rhs,
-//             Self::Neq => lhs != rhs,
-//             Self::Lt => lhs < rhs,
-//             Self::Gt => lhs > rhs,
-//             Self::Lte => lhs <= rhs,
-//             Self::Gte => lhs >= rhs,
-//         }
-//     }
-// }
-
-/// # Expressions
-/// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
-///     | fn call | []
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
+	/*
+	Expr ::= <Val>
+	*/
     Val(Rc<Value>),
-
+    /*
+    Expr ::= '-' <Expr>
+    */
     Neg(Rc<Expr>),
-    Op(Rc<Expr>, Operation, Rc<Expr>),
-    //CompareOp(Rc<Expr>, CompareBinop, Rc<Expr>),
+    /*
+    Expr ::= <Expr> <Operation> <Expr>
+    */
+    BinaryOp(Rc<Expr>, Operation, Rc<Expr>),
+    /*
+    Expr ::= <Name>
+    */
     Var(Name),
-
-    Call(Name, ParamList),
+    /*
+    Expr ::= <Name> <ParamList>
+    */
+    Call(Name, Arguments),
     Array(Vec<Expr>),
     Index(Name, Rc<Expr>),
     Deref(Rc<Expr>),
     Ref(Name),
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-// pub enum Type {
-//     IntT,
-//     BoolT,
-//     VoidT,
-//     ArrayT,
-// }
-
-/// # Statements
-/// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
-///     | continue
-
-
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Type {
+    /*
+    Type ::= 'int'
+    */
+    IntT,
+    /*
+    Type ::= 'bool'
+    */
+    BoolT,
+    /*
+    Type ::= '()'
+    */
+    UnitT,
+    /*
+    Type ::= '?'
+    */
+    ArrayT(Box<Type>),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
+	/*
+	Declaration that will be desugared
+	DeclD ::= <Type> <Name> ('=' <Expr>)? ';'
+	*/
+    DeclD(Type, Name, Option<Rc<Expr>>),
+    /*
+    For loop that will be desugared.
+	If ::= 'for' '(' <Expr> ';' <Expr> ';' <Expr> ')' <Stmt>
+    */
+    ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
+	/*
+	While ::= 'while' '(' <Expr> ')' <Stmt>
+	*/
+	WhileD(Rc<Expr>, Rc<Stmt>),
+
+    // Rules used in CESK
+    /*
+	The <If> statement will contain a conditional <Expr>, a true 
+	branch <Stmt> and an optional false branch <Stmt>.
+	If ::= 'if' '(' <Expr> ')' <Stmt> ('else' <Stmt>)?
+    */
     If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
+    /*
+	The <Assign> will contain a assignment location (can be a variable or member of array) of <Expr>
+	and the thing to be assigned <Expr>.
+    */
     Assign(Rc<Expr>, Rc<Expr>),
+    /*
+	The <ExprStmt> will only contain some <Expr> to be evaluated.
+	ExprStmt ::= <Expr> ';'
+    */
     ExprStmt(Rc<Expr>),
-    Decl(Name, Option<Rc<Expr>>),
+    /*
+	The <Decl> will be what introduces a <Name> into the environment. No other information should
+	be needed since type checking should have occured.
+	
+    */
+    Decl(Name),
+    /*
+	The <Return> will always return some <Expr>. This can be some value or Unit.
+    */
     Return(Rc<Expr>),
-    Block(BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>>),
-    Break,
+    /*
+    The block will hold a vector of <Stmt>. 
+    Block ::= '{' <Stmt>* '}'
+    */
+    Block(Rc<Vec<Stmt>>),
+    /*
+	This <Goto> will hold its jump location <Stmt>.
+    */
     Goto(Rc<Stmt>),
     Continue,
+    Break,
 }
+
+
+/*
+Arguments ::= '(' <Expr>* ')'
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Arguments(pub Vec<Expr>);
+
+/*
+ParamList ::= '(' (<Type> <Name>)* ')'
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ParamList(pub Vec<(Type, Name)>);
+
+/*
+Fun ::= <Type> <Name> <Arguments> <Body>
+*/
+#[derive(Debug, Clone)]
+pub struct Fun {
+	pub typ: Type,
+    pub name: Name,
+    pub params: ParamList,
+    pub body: Stmt,
+}
+
+/*
+Program ::= <Fun>+
+*/
+#[derive(Debug, Clone)]
+pub struct Program {
+    pub funs: HashMap<Name, Fun>,
+}
+
 
 impl Iterator for Stmt {
     type Item = (Rc<Stmt>, Option<Rc<Stmt>>);
@@ -136,45 +214,6 @@ impl Iterator for Stmt {
             _ => panic!("statement has no successors")
         }
     }
-}
-
-/*
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Stmt {
-    pub label: Option<Name>,
-    pub contents: StmtContents<'tree>,
-    pub successor: Option<&'tree Stmt>,
-    pub parent: Option<&'tree Stmt>,
-}
-*/
-
-#[derive(Debug, Clone)]
-pub struct Arguments(pub Vec<Expr>);
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ParamList(pub Vec<Name>);
-
-/// # Function
-/// a function consists of a return type, a name, a list of args, and a body statement
-#[derive(Debug, Clone)]
-pub struct Fun {
-    pub name: Name,
-    pub args: Arguments,
-    pub body: Stmt,
-}
-
-impl Iterator for Fun {
-    type Item = Stmt;
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.body.clone())     // do we want to clone this?
-    }
-}
-
-// TODO: Change to HashMap
-
-#[derive(Debug, Clone)]
-pub struct Program {
-    pub funs: Vec<Fun>,
 }
 
 #[cfg(test)]

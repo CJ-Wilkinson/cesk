@@ -6,7 +6,7 @@ impl Display for Value {
         match self {
             Self::IntV(x) => write!(f, "{}", x),
             Self::BoolV(b) => write!(f, "{}", b),
-            Self::VoidV => write!(f, "void"),
+            Self::UnitV => write!(f, "()"),
 
             // Self::ArrayV(vec) => {
             //     let mut s = String::new();
@@ -48,7 +48,7 @@ impl Display for Expr {
         match self {
             Self::Val(v) => write!(f, "{}", v),
             Self::Neg(ex) => write!(f, "{}", ex),
-            Self::Op(e1, op, e2) => write!(f, "{} {} {}", e1, op, e2),
+            Self::BinaryOp(e1, op, e2) => write!(f, "{} {} {}", e1, op, e2),
             Self::Var(n) => write!(f, "{}", n),
             Self::Call(n, args) => write!(f, "{} ({:?})", n, args),
             Self::Array(elems) => write!(f, "[{:?}]", elems),
@@ -57,6 +57,18 @@ impl Display for Expr {
             Self::Ref(n) => write!(f, "&{}", n),
         }
     }
+}
+
+impl Display for Type {
+	fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
+		use Type::*;
+		match self {
+			IntT => write!(f, "int"),
+			BoolT => write!(f, "int"),
+			UnitT => write!(f, "int"),
+			ArrayT(t) => write!(f, "{}[]", t),
+		}
+	}
 }
 
 impl Display for Stmt {
@@ -70,30 +82,32 @@ impl Display for Stmt {
             },
             Self::Assign(var, val) => write!(f, "{} = {};", var, val),
             Self::ExprStmt(ex) => write!(f, "{};", ex),
-            Self::Decl(n, val) => {
+            Self::DeclD(t, n, val) => {
                 match val {
-                    Some(v) => write!(f, "{} = {};", n, v),
-                    None => write!(f, "{};", n),
+                    Some(v) => write!(f, "{} {} = {};", t, n, v),
+                    None => write!(f, "{} {};", t, n),
                 }
             },
+            Self::Decl(n) => {
+            	write!(f, "{}", n.0)
+            }
             Self::Return(ex) => {
-                match ex {
-                    Some(e) => write!(f, "return {};", e),
-                    None => write!(f, "return;"),
-                }
+                write!(f, "return {}", ex)
             },
-            Self::Block(btree) => {
-                write!(f, "{{ {:?} }}", btree.keys().clone())
+            Self::Block(_v) => {
+                //write!(f, "{{ {:?} }}", btree.keys().clone())
+                write!(f, "")
             },
             Self::Break => write!(f, "break;"),
             Self::Goto(st) => write!(f, "goto: {};", st),
             Self::Continue => write!(f, "continue;"),
+            _ => write!(f, ""),
         }
     }
 }
 
 impl Display for ast::Fun {
     fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
-        write!(f, "{}({:?}){{ {} }}", self.name, self.args, self.body)
+        write!(f, "{}({:?}){{ {} }}", self.name, self.params, self.body)
     }
 }
