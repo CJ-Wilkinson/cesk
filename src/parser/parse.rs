@@ -1,6 +1,7 @@
 use std::rc::Rc;
+use std::collections::HashMap;
 
-use crate::ast::{ArithBinop, CompareBinop, Expr, Fun, Name, Program, Stmt, Type, Value};
+use crate::ast::*;
 // use chumsky::error::EmptyErr;
 use chumsky::pratt::{infix, left, none, prefix};
 use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
@@ -9,7 +10,7 @@ pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
     choice((
         text::ascii::keyword("int").padded().to(Type::IntT),
         text::ascii::keyword("bool").padded().to(Type::BoolT),
-        text::ascii::keyword("void").padded().to(Type::VoidT),
+        text::ascii::keyword("()").padded().to(Type::UnitT),
     ))
 }
 
@@ -19,33 +20,33 @@ pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
         .map(|name: &'src str| Name(name.to_string()))
 }
 
-pub fn add_sub_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
+pub fn add_sub_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
     choice((
-        just('+').padded().to(ArithBinop::Add),
-        just('-').padded().to(ArithBinop::Sub),
+        just('+').padded().to(Operation::Add),
+        just('-').padded().to(Operation::Sub),
     ))
 }
 
-pub fn mult_div_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
+pub fn mult_div_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
     choice((
-        just('*').padded().to(ArithBinop::Mult),
-        just('/').padded().to(ArithBinop::Div),
-        just('%').padded().to(ArithBinop::Rem),
+        just('*').padded().to(Operation::Mult),
+        just('/').padded().to(Operation::Div),
+        just('%').padded().to(Operation::Rem),
     ))
 }
 
-pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, ArithBinop> + Clone {
+pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
     choice((add_sub_parser(), mult_div_parser()))
 }
 
-pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, CompareBinop> + Clone {
+pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
     choice((
-        just('<').padded().to(CompareBinop::Lt),
-        just('>').padded().to(CompareBinop::Gt),
-        text::ascii::keyword("<=").padded().to(CompareBinop::Lte),
-        text::ascii::keyword(">=").padded().to(CompareBinop::Gte),
-        text::ascii::keyword("==").padded().to(CompareBinop::Eq),
-        text::ascii::keyword("!=").padded().to(CompareBinop::Neq),
+        just('<').padded().to(Operation::Lt),
+        just('>').padded().to(Operation::Gt),
+        text::ascii::keyword("<=").padded().to(Operation::Lte),
+        text::ascii::keyword(">=").padded().to(Operation::Gte),
+        text::ascii::keyword("==").padded().to(Operation::Eq),
+        text::ascii::keyword("!=").padded().to(Operation::Neq),
     ))
 }
 
@@ -64,7 +65,7 @@ where
     let value = choice((int, bool_v));
 
     choice((
-        value.map(Expr::Val),
+        value.map(|e| Expr::Val(Rc::new(e))),
 
         ident_parser()
             .then(
@@ -75,7 +76,7 @@ where
                     .or_not(),
             )
             .map(|(n, args)| match args {
-                Some(a) => Expr::Call(n, a),
+                Some(a) => Expr::Call(n, Arguments(a)),
                 None => Expr::Var(n),
             }),
 
@@ -83,23 +84,23 @@ where
             .padded()
             .ignore_then(expr.clone())
             .then_ignore(just(')').padded()),
+        ident_parser().then(
+                just('[')
+                    .padded()
+                    .ignore_then(expr)
+                    .then_ignore(just(']').padded())
+                    .or_not(),
+            )
+            .map(|(e, i)| match i {
+                Some(index) => Expr::Index(e, Rc::new(index)),
+                None => Expr::Var(e),
+            }),
     ))
-    .then(
-        just('[')
-            .padded()
-            .ignore_then(expr)
-            .then_ignore(just(']').padded())
-            .or_not(),
-    )
-    .map(|(e, i)| match i {
-        Some(index) => Expr::Index(Rc::new(e), Rc::new(index)),
-        None => e,
-    })
 }
 
 pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
-    fn make_arith(lhs: Expr, op: ArithBinop, rhs: Expr) -> Expr {
-        Expr::ArithBinop(Rc::new(lhs), op, Rc::new(rhs))
+    fn make_arith(lhs: Expr, op: Operation, rhs: Expr) -> Expr {
+        Expr::BinaryOp(Rc::new(lhs), op, Rc::new(rhs))
     }
 
     recursive(|expr| {
@@ -108,7 +109,7 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
         choice((
             atom.pratt((
                 infix(none(1), compare_binop_parser(), |l, op, r, _| {
-                    Expr::CompareBinop(Rc::new(l), op, Rc::new(r))
+                    Expr::BinaryOp(Rc::new(l), op, Rc::new(r))
                 }),
                 infix(left(2), add_sub_parser(), |l, o, r, _| make_arith(l, o, r)),
                 infix(left(3), mult_div_parser(), |l, o, r, _| make_arith(l, o, r)),
@@ -132,14 +133,15 @@ where
         .ignore_then(
             stmt.repeated().collect::<Vec<_>>().map(|stmts| {
                 Stmt::Block(
-                    stmts
+                    Rc::new(stmts
                         .into_iter()
                         .map(|s| {
-                            let next: Option<Rc<Stmt>> = None;
-                            (Rc::new(s), next)
+                            // let next: Option<Rc<Stmt>> = None;
+                            // (Rc::new(s), next)
+                            s
                         })
                         .collect(),
-                )
+                ))
             }),
         )
         .then_ignore(just('}').padded())
@@ -154,11 +156,11 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .then_ignore(just('=').padded())
                 .then(exp_parser())
                 .then_ignore(just(';').padded())
-                .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
+                .map(|(lhs, rhs)| Stmt::Assign(Rc::new(lhs), Rc::new(rhs))),
 
             exp_parser()
                 .then_ignore(just(';').padded())
-                .map(Stmt::ExprStmt),
+                .map(|e| Stmt::ExprStmt(Rc::new(e))),
 
             block.clone(),
 
@@ -174,7 +176,7 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                         .ignore_then(block.clone())
                         .or_not(),
                 )
-                .map(|((cond, t), f)| Stmt::If(cond, Rc::new(t), f.map(Rc::new))),
+                .map(|((cond, t), f)| Stmt::If(Rc::new(cond), Rc::new(t), f.map(Rc::new))),
 
             text::ascii::keyword("while")
                 .padded()
@@ -182,19 +184,25 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .ignore_then(exp_parser())
                 .then_ignore(just(')').padded())
                 .then(block.clone())
-                .map(|(cond, t)| Stmt::While(cond, Rc::new(t))),
+                .map(|(cond, t)| Stmt::WhileD(Rc::new(cond), Rc::new(t))),
 
             text::ascii::keyword("return")
                 .padded()
-                .ignore_then(exp_parser().or_not())
+                .ignore_then(exp_parser())
                 .then_ignore(just(';').padded())
-                .map(Stmt::Return),
+                .map(|e| Stmt::Return(Rc::new(e))),
 
             typ_parser()
                 .then(ident_parser())
                 .then(just('=').padded().ignore_then(exp_parser()).or_not())
                 .then_ignore(just(';').padded())
-                .map(|((typ, name), init)| Stmt::Decl(typ, name, init)),
+                .map(|((typ, name), init)| {
+                	if let Some(init) = init {
+                		Stmt::DeclD(typ, name, Some(Rc::new(init)))
+                	} else {
+                		Stmt::DeclD(typ, name, None)	
+                	}
+                }),
         ))
     })
 }
@@ -213,10 +221,10 @@ where
         )
         .then_ignore(just(')').padded())
         .then(block_parser(stmt))
-        .map(|(((rtype, name), args), body)| Fun {
-            rtype,
+        .map(|(((typ, name), args), body)| Fun {
+            typ,
             name,
-            args,
+            params: ParamList(args),
             body,
         })
 }
@@ -227,7 +235,14 @@ pub fn program_parser<'src>() -> impl Parser<'src, &'src str, Program> {
     fun_parser(stmt)
         .repeated()
         .collect::<Vec<Fun>>()
-        .map(|funs| Program { funs })
+        // TODO: Fix this
+        .map(|funs| {
+        	let mut prog: HashMap<Name, Fun> = HashMap::new();
+        	for f in funs {
+        		prog.insert(f.name.clone(), f);
+        	}
+        	Program {funs: prog}
+        })
 }
 
 pub fn parse(filename: &str) {

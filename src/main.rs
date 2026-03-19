@@ -4,7 +4,7 @@ pub mod ast;
 pub mod conf;
 pub mod display;
 
-//pub mod parser;
+pub mod parser;
 
 //pub use crate::parser::parse;
 
