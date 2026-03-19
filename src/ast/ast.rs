@@ -157,7 +157,7 @@ pub enum Stmt {
     The block will hold a vector of <Stmt>.
     Block ::= '{' <Stmt>* '}'
     */
-    Block(Rc<Vec<Stmt>>),
+    Block(Rc<Vec<Rc<Stmt>>>),
     /*
     This <Goto> will hold its jump location <Stmt>.
     */

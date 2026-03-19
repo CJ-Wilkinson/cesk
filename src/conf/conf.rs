@@ -93,6 +93,7 @@ enum Kont {
     CallK(Rc<Env>, Rc<ParamList>, Rc<Arguments>, Rc<Kont>),
     FunK(Rc<Env>, Rc<Kont>),
     BlocK(Rc<Env>, Rc<Stmt>, Rc<Kont>),
+    AssignK(Rc<Expr>, Rc<Stmt>, Rc<Kont>),
 }
 
 #[derive(Debug)]
@@ -193,40 +194,69 @@ impl Config {
                             Rc::clone(&self.k),
                         )),
                     },
-                    Decl(_) => todo!(),
-                    Assign(_, _) => todo!(),
-                    //              Return(expr) => {
-                    //              	let mut k = Rc::clone(&self.k);
-                    //              	while let BlockK(_, _, inner_k) = k.as_ref() {
-                    //              		k = Rc::clone(inner_k);
-                    //              	}
-                    //              	if let ReturnK(_, _, _) = k.as_ref() {
-                    // Self {
-                    // 	c: AstExpr(Rc::clone(expr)),
-                    // 	e: Rc::clone(&self.e),
-                    // 	s: Rc::clone(&self.s),
-                    // 	k: Rc::clone(&k),
-                    // }
-                    //              	} else {
-                    //              		panic!()
-                    //              	}
-                    //              }
-                    Return(expr) => match self.k.as_ref() {
-                        BlocK(_, _, k) => Self {
-                            c: AstExpr(expr.clone()),
-                            e: self.e.clone(),
-                            s: self.s.clone(),
-                            k: k.clone(),
-                        },
-                        ReturnK(_, _) => Self {
-                            c: AstExpr(expr.clone()),
-                            e: self.e.clone(),
-                            s: self.s.clone(),
-                            k: self.k.clone(),
-                        },
-                        _ => panic!("Found some other Kont"),
+                    Decl(id) => Self { 
+                        c: AstExpr(Rc::new(Val(Rc::new(UnitV)))), 
+                        e: self.e.clone(), 
+                        s: self.s.clone(), 
+                        k:  Rc::new(DeclK(
+                            id.clone(),
+                            successor_lookup(),
+                            self.k.clone()
+                        )),
                     },
-                    Block(_) => todo!(),
+                    Assign(id, expr) => Self { 
+                        c: AstExpr(expr.clone()), 
+                        e: self.e.clone(), 
+                        s: self.s.clone(), 
+                        k: Rc::new(AssignK(
+                            id.clone(),
+                            successor_lookup(),
+                            self.k.clone(),
+                        ))
+                    },
+       //              Return(expr) => {
+       //              	let mut k = Rc::clone(&self.k);
+       //              	while let BlockK(_, _, inner_k) = k.as_ref() {
+       //              		k = Rc::clone(inner_k);
+       //              	}
+       //              	if let ReturnK(_, _, _) = k.as_ref() {
+							// Self {
+							// 	c: AstExpr(Rc::clone(expr)),
+							// 	e: Rc::clone(&self.e),
+							// 	s: Rc::clone(&self.s),
+							// 	k: Rc::clone(&k),
+							// }
+       //              	} else {
+       //              		panic!()
+       //              	}
+       //              }
+                    Return(expr) => {
+						match self.k.as_ref() {
+							BlocK(_, _, k) => Self {
+								c: AstExpr(expr.clone()),
+								e: self.e.clone(),
+								s: self.s.clone(),
+								k: k.clone()
+							},
+							ReturnK(_, _) => Self {
+								c: AstExpr(expr.clone()),
+								e: self.e.clone(),
+								s: self.s.clone(),
+								k: self.k.clone(),
+							},
+							_ => panic!("Found some other Kont"), 
+						}
+                    } 
+                    Block(stmts) => Self {
+                        c: AstStmt(stmts.get(0).unwrap().clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(BlocK(
+                            self.e.clone(),
+                            successor_lookup(),
+                            self.k.clone(),
+                        ))
+                    },
                     Break => todo!(),
                     Goto(_) => todo!(),
                     Continue => todo!(),
@@ -245,6 +275,7 @@ impl Config {
                     }
                 }
                 Val(v) => self.invoke_kont(v),
+                Call(_,_) => todo!(),
                 _ => todo!(),
             },
         }
@@ -290,7 +321,7 @@ impl Config {
             },
             DeclK(id, succ, k) => {
                 // Get new address
-                let addr = Address { a: 0 };
+                let addr = Address { a: 0 }; // TODO  actual address look up
                 Self {
                     c: AstStmt(Rc::clone(succ)),
                     e: {
@@ -308,6 +339,29 @@ impl Config {
             }
             ReturnK(env, k) => Self {
                 c: AstExpr(Rc::new(Expr::Val(v1.clone()))),
+                e: env.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
+            },
+            AssignK(id, succ, k) => {
+                let addr: &Address = match id.as_ref() {
+                    Var(n) => if let Some(addr) = self.e.0.get(n){addr} else {panic!()}
+                    _ => todo!(), // TODO Array indexing
+                };
+                Self { 
+                    
+                    c: AstStmt(succ.clone()),
+                    e: self.e.clone(),
+                    s: {
+                        let mut new_store = (*self.s).clone();
+                        new_store.0.insert(addr.clone(), v1.clone());
+                        Rc::new(new_store)
+                    },
+                    k: k.clone(),
+                }
+            },
+            BlocK(env, succ, k) => Self {
+                c: AstStmt(succ.clone()),
                 e: env.clone(),
                 s: self.s.clone(),
                 k: k.clone(),
