@@ -166,6 +166,20 @@ pub enum Stmt {
     Break,
 }
 
+impl Iterator for Stmt {
+    type Item = Stmt;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Block(stmts) => {
+                let ret = stmts[0].clone();
+                *self = Self::Block(Rc::new(Vec::from(stmts[1..].as_ref())));
+                Some(ret)
+            },
+            _ => panic!("statement has no successors")
+        }
+    }
+}
+
 
 /*
 Arguments ::= '(' <Expr>* ')'
@@ -199,22 +213,6 @@ pub struct Program {
 }
 
 
-impl Iterator for Stmt {
-    type Item = (Rc<Stmt>, Option<Rc<Stmt>>);
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::Block(tree) => {
-                if let Some((key, val)) = tree.iter().next() {
-                    Some((key.clone(), val.clone()))
-                        
-                } else { 
-                    panic!()
-                }
-            }
-            _ => panic!("statement has no successors")
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -225,16 +223,14 @@ mod tests {
         use Stmt::Block as Block;
         use Stmt::Decl as Decl;
 
-        let temp_map: BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>> = BTreeMap::from([
-            (Rc::new(Decl(Name("x".to_string()), None)), None),
-            // (Rc::new(Decl(Name("y".to_string()), None)), None),
-        ]);
+        let dec = Decl(Name("x".to_string()));
+        let dec2 = Decl(Name("y".to_string()));
 
-        let mut bl = Block(temp_map);
+        let mut bl = Block(Rc::new(vec![dec, dec2]));
 
-        let succ = bl.next().unwrap();
-        println!("{:?}", succ.0);
-        // assert!(succ.0.as_ref() == Decl(Name("x".to_string()), None));
-        // assert_eq!(succ.0.as_ref(), Decl(Name("x".to_string()), None));
+        assert_eq!(bl.next().unwrap(), Decl(Name("x".to_string())));
+        assert_eq!(bl.next().unwrap(), Decl(Name("y".to_string())));
+        // println!("bl: {:?}", bl.next());
+        // println!("bl: {:?}", bl.next());
     }
 }
