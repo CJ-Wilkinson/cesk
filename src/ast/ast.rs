@@ -90,7 +90,6 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Type {
-<<<<<<< Updated upstream
     /*
     Type ::= 'int'
     */
@@ -108,20 +107,6 @@ pub enum Type {
     */
     ArrayT(Box<Type>),
 }
-=======
-    IntT,
-    BoolT,
-    VoidT,
-    ArrayT,
-}
-
-/// # Statements
-/// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
-///     | continue
-
-
-
->>>>>>> Stashed changes
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
@@ -183,23 +168,14 @@ pub enum Stmt {
 /*
 Arguments ::= '(' <Expr>* ')'
 */
-<<<<<<< Updated upstream
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-=======
-
-#[derive(Debug, Clone, PartialEq, Eq)]
->>>>>>> Stashed changes
 pub struct Arguments(pub Vec<Expr>);
 
 /*
 ParamList ::= '(' (<Type> <Name>)* ')'
 */
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-<<<<<<< Updated upstream
 pub struct ParamList(pub Vec<(Type, Name)>);
-=======
-pub struct ParamList(pub Vec<Expr>);
->>>>>>> Stashed changes
 
 /*
 Fun ::= <Type> <Name> <Arguments> <Body>
