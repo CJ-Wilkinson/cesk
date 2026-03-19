@@ -82,12 +82,15 @@ impl Display for Stmt {
             },
             Self::Assign(var, val) => write!(f, "{} = {};", var, val),
             Self::ExprStmt(ex) => write!(f, "{};", ex),
-            Self::Decl(t, n, val) => {
+            Self::DeclD(t, n, val) => {
                 match val {
                     Some(v) => write!(f, "{} {} = {};", t, n, v),
                     None => write!(f, "{} {};", t, n),
                 }
             },
+            Self::Decl(n) => {
+            	write!(f, "{}", n.0)
+            }
             Self::Return(ex) => {
                 write!(f, "return {}", ex)
             },
@@ -98,6 +101,7 @@ impl Display for Stmt {
             Self::Break => write!(f, "break;"),
             Self::Goto(st) => write!(f, "goto: {};", st),
             Self::Continue => write!(f, "continue;"),
+            _ => write!(f, ""),
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Name, Operation, Stmt, Value, ParamList, Arguments};
+use crate::ast::{Expr, Name, Operation, Stmt, Value, ParamList, Arguments, Type};
 use Control::*;
 use Expr::*;
 use Kont::*;
@@ -184,7 +184,7 @@ impl Config {
                             Rc::clone(&self.k),
                         )),
                     },
-                    Decl(id, expr) => Self {
+                    DeclD(_, id, expr) => Self {
                         c: match expr {
                             Some(expr) => AstExpr(Rc::clone(expr)),
                             None => AstExpr(Rc::new(Val(Rc::new(UnitV)))),
@@ -197,6 +197,7 @@ impl Config {
                             Rc::clone(&self.k),
                         )),
                     },
+                    Decl(_) => todo!(),
                     Assign(_, _) => todo!(),
        //              Return(expr) => {
        //              	let mut k = Rc::clone(&self.k);
@@ -235,10 +236,11 @@ impl Config {
                     Break => todo!(),
                     Goto(_) => todo!(),
                     Continue => todo!(),
+                    _ => todo!(),
                 }
             }
             AstExpr(e) => match e.as_ref() {
-                Op(l, op, r) => {
+                BinaryOp(l, op, r) => {
                     if let (Val(l), Val(r)) = (l.as_ref(), r.as_ref()) {
                         self.new_c(AstExpr(Rc::new(Val(Rc::new(op.call(l, r))))))
                     } else {
@@ -353,15 +355,15 @@ mod tests {
         //     )),
         // );
         let ast = If(
-            Rc::new(Op(
+            Rc::new(BinaryOp(
                 Rc::new(Val(Rc::new(IntV(3)))),
                 Operation::Lt,
                 Rc::new(Val(Rc::new(IntV(4)))),
             )),
-            Rc::new(Decl(Name("Hi".to_string()), Some(Rc::new(Op(
+            Rc::new(DeclD(Type::IntT, Name("Hi".to_string()), Some(Rc::new(BinaryOp(
                 Rc::new(Val(Rc::new(IntV(9)))),
                 Operation::Add,
-                Rc::new(Op(
+                Rc::new(BinaryOp(
                     Rc::new(Val(Rc::new(IntV(27)))),
                     Operation::Div,
                     Rc::new(Val(Rc::new(IntV(9)))),
