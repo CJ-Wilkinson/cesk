@@ -97,6 +97,7 @@ enum Kont {
     CallK(Rc<Env>, Rc<ParamList>, Rc<Arguments>, Rc<Kont>),
     FunK(Rc<Env>, Rc<Kont>),
     BlocK(Rc<Env>, Rc<Stmt>, Rc<Kont>),
+    AssignK(Rc<Expr>, Rc<Stmt>, Rc<Kont>),
 }
 
 #[derive(Debug)]
@@ -197,8 +198,26 @@ impl Config {
                             Rc::clone(&self.k),
                         )),
                     },
-                    Decl(_) => todo!(),
-                    Assign(_, _) => todo!(),
+                    Decl(id) => Self { 
+                        c: AstExpr(Rc::new(Val(Rc::new(UnitV)))), 
+                        e: self.e.clone(), 
+                        s: self.s.clone(), 
+                        k:  Rc::new(DeclK(
+                            id.clone(),
+                            successor_lookup(),
+                            self.k.clone()
+                        )),
+                    },
+                    Assign(id, expr) => Self { 
+                        c: AstExpr(expr.clone()), 
+                        e: self.e.clone(), 
+                        s: self.s.clone(), 
+                        k: Rc::new(AssignK(
+                            id.clone(),
+                            successor_lookup(),
+                            self.k.clone(),
+                        ))
+                    },
        //              Return(expr) => {
        //              	let mut k = Rc::clone(&self.k);
        //              	while let BlockK(_, _, inner_k) = k.as_ref() {
@@ -232,7 +251,16 @@ impl Config {
 							_ => panic!("Found some other Kont"), 
 						}
                     } 
-                    Block(_) => todo!(),
+                    Block(stmts) => Self {
+                        c: AstStmt(stmts.get(0).unwrap().clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(BlocK(
+                            self.e.clone(),
+                            successor_lookup(),
+                            self.k.clone(),
+                        ))
+                    },
                     Break => todo!(),
                     Goto(_) => todo!(),
                     Continue => todo!(),
@@ -251,6 +279,7 @@ impl Config {
                     }
                 }
                 Val(v) => self.invoke_kont(v),
+                Call(_,_) => todo!(),
                 _ => todo!(),
             },
         }
@@ -296,7 +325,7 @@ impl Config {
             },
             DeclK(id, succ, k) => {
                 // Get new address
-                let addr = Address { a: 0 };
+                let addr = Address { a: 0 }; // TODO  actual address look up
                 Self {
                     c: AstStmt(Rc::clone(succ)),
                     e: {
@@ -317,6 +346,29 @@ impl Config {
             	e: env.clone(),
             	s: self.s.clone(),
             	k: k.clone(),
+            },
+            AssignK(id, succ, k) => {
+                let addr: &Address = match id.as_ref() {
+                    Var(n) => if let Some(addr) = self.e.0.get(n){addr} else {panic!()}
+                    _ => todo!(), // TODO Array indexing
+                };
+                Self { 
+                    
+                    c: AstStmt(succ.clone()),
+                    e: self.e.clone(),
+                    s: {
+                        let mut new_store = (*self.s).clone();
+                        new_store.0.insert(addr.clone(), v1.clone());
+                        Rc::new(new_store)
+                    },
+                    k: k.clone(),
+                }
+            },
+            BlocK(env, succ, k) => Self {
+                c: AstStmt(succ.clone()),
+                e: env.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
             },
             _ => todo!(),
         }

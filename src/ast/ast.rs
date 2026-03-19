@@ -136,7 +136,7 @@ pub enum Stmt {
 	The <Assign> will contain a assignment location (can be a variable or member of array) of <Expr>
 	and the thing to be assigned <Expr>.
     */
-    Assign(Rc<Value>, Rc<Expr>),
+    Assign(Rc<Expr>, Rc<Expr>),
     /*
 	The <ExprStmt> will only contain some <Expr> to be evaluated.
 	ExprStmt ::= <Expr> ';'
@@ -156,7 +156,7 @@ pub enum Stmt {
     The block will hold a vector of <Stmt>. 
     Block ::= '{' <Stmt>* '}'
     */
-    Block(Rc<Vec<Stmt>>),
+    Block(Rc<Vec<Rc<Stmt>>>),
     /*
 	This <Goto> will hold its jump location <Stmt>.
     */
