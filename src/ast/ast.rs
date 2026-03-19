@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::iter::Iterator;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Name(pub String);
@@ -120,6 +121,23 @@ pub enum Stmt {
     Continue,
 }
 
+impl Iterator for Stmt {
+    type Item = (Rc<Stmt>, Option<Rc<Stmt>>);
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Block(tree) => {
+                if let Some((key, val)) = tree.iter().next() {
+                    Some((key.clone(), val.clone()))
+                        
+                } else { 
+                    panic!()
+                }
+            }
+            _ => panic!("statement has no successors")
+        }
+    }
+}
+
 /*
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stmt {
@@ -145,9 +163,39 @@ pub struct Fun {
     pub body: Stmt,
 }
 
+impl Iterator for Fun {
+    type Item = Stmt;
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.body.clone())     // do we want to clone this?
+    }
+}
+
 // TODO: Change to HashMap
 
 #[derive(Debug, Clone)]
 pub struct Program {
     pub funs: Vec<Fun>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn block_iter() {
+        use Stmt::Block as Block;
+        use Stmt::Decl as Decl;
+
+        let temp_map: BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>> = BTreeMap::from([
+            (Rc::new(Decl(Name("x".to_string()), None)), None),
+            // (Rc::new(Decl(Name("y".to_string()), None)), None),
+        ]);
+
+        let mut bl = Block(temp_map);
+
+        let succ = bl.next().unwrap();
+        println!("{:?}", succ.0);
+        // assert!(succ.0.as_ref() == Decl(Name("x".to_string()), None));
+        // assert_eq!(succ.0.as_ref(), Decl(Name("x".to_string()), None));
+    }
 }
