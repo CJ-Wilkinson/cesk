@@ -209,7 +209,7 @@ impl Traverse for Fun {
 
         self.typ.traverse(v);
         self.name.traverse(v);
-        self.args.traverse(v);
+        self.params.traverse(v);
         self.body.traverse(v);
 
         v.postvisit_fun(self);

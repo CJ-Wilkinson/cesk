@@ -5,6 +5,7 @@ pub mod conf;
 pub mod display;
 
 pub mod parser;
+pub mod visit;
 
 //pub use crate::parser::parse;
 

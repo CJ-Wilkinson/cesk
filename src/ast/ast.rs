@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /*
@@ -81,7 +81,7 @@ pub enum Expr {
     /*
     Expr ::= <Name> <ParamList>
     */
-    Call(Name, ParamList),
+    Call(Name, Arguments),
     Array(Vec<Expr>),
     Index(Name, Rc<Expr>),
     Deref(Rc<Expr>),
@@ -136,7 +136,7 @@ pub enum Stmt {
     The <Assign> will contain a assignment location (can be a variable or member of array) of <Expr>
     and the thing to be assigned <Expr>.
     */
-    Assign(Rc<Value>, Rc<Expr>),
+    Assign(Rc<Expr>, Rc<Expr>),
     /*
     The <ExprStmt> will only contain some <Expr> to be evaluated.
     ExprStmt ::= <Expr> ';'
@@ -168,7 +168,7 @@ pub enum Stmt {
 /*
 Arguments ::= '(' <Expr>* ')'
 */
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Arguments(pub Vec<Expr>);
 
 /*
@@ -184,7 +184,7 @@ Fun ::= <Type> <Name> <Arguments> <Body>
 pub struct Fun {
     pub typ: Type,
     pub name: Name,
-    pub args: Arguments,
+    pub params: ParamList,
     pub body: Stmt,
 }
 

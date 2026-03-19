@@ -1,10 +1,10 @@
+use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::collections::HashMap;
 
 use crate::ast::*;
 // use chumsky::error::EmptyErr;
 use chumsky::pratt::{infix, left, none, prefix};
-use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
+use chumsky::prelude::{IterParser, Parser, choice, just, recursive, text};
 
 pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
     choice((
@@ -59,14 +59,15 @@ where
         .padded();
 
     let true_v = text::ascii::keyword("true").padded().to(Value::BoolV(true));
-    let false_v = text::ascii::keyword("false").padded().to(Value::BoolV(false));
+    let false_v = text::ascii::keyword("false")
+        .padded()
+        .to(Value::BoolV(false));
     let bool_v = choice((true_v, false_v));
 
     let value = choice((int, bool_v));
 
     choice((
         value.map(|e| Expr::Val(Rc::new(e))),
-
         ident_parser()
             .then(
                 just('(')
@@ -79,12 +80,12 @@ where
                 Some(a) => Expr::Call(n, Arguments(a)),
                 None => Expr::Var(n),
             }),
-
         just('(')
             .padded()
             .ignore_then(expr.clone())
             .then_ignore(just(')').padded()),
-        ident_parser().then(
+        ident_parser()
+            .then(
                 just('[')
                     .padded()
                     .ignore_then(expr)
@@ -130,20 +131,18 @@ where
 {
     just('{')
         .padded()
-        .ignore_then(
-            stmt.repeated().collect::<Vec<_>>().map(|stmts| {
-                Stmt::Block(
-                    Rc::new(stmts
-                        .into_iter()
-                        .map(|s| {
-                            // let next: Option<Rc<Stmt>> = None;
-                            // (Rc::new(s), next)
-                            s
-                        })
-                        .collect(),
-                ))
-            }),
-        )
+        .ignore_then(stmt.repeated().collect::<Vec<_>>().map(|stmts| {
+            Stmt::Block(Rc::new(
+                stmts
+                    .into_iter()
+                    .map(|s| {
+                        // let next: Option<Rc<Stmt>> = None;
+                        // (Rc::new(s), next)
+                        s
+                    })
+                    .collect(),
+            ))
+        }))
         .then_ignore(just('}').padded())
 }
 
@@ -157,13 +156,10 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .then(exp_parser())
                 .then_ignore(just(';').padded())
                 .map(|(lhs, rhs)| Stmt::Assign(Rc::new(lhs), Rc::new(rhs))),
-
             exp_parser()
                 .then_ignore(just(';').padded())
                 .map(|e| Stmt::ExprStmt(Rc::new(e))),
-
             block.clone(),
-
             text::ascii::keyword("if")
                 .padded()
                 .ignore_then(just('(').padded())
@@ -177,7 +173,6 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                         .or_not(),
                 )
                 .map(|((cond, t), f)| Stmt::If(Rc::new(cond), Rc::new(t), f.map(Rc::new))),
-
             text::ascii::keyword("while")
                 .padded()
                 .ignore_then(just('(').padded())
@@ -185,23 +180,21 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .then_ignore(just(')').padded())
                 .then(block.clone())
                 .map(|(cond, t)| Stmt::WhileD(Rc::new(cond), Rc::new(t))),
-
             text::ascii::keyword("return")
                 .padded()
                 .ignore_then(exp_parser())
                 .then_ignore(just(';').padded())
                 .map(|e| Stmt::Return(Rc::new(e))),
-
             typ_parser()
                 .then(ident_parser())
                 .then(just('=').padded().ignore_then(exp_parser()).or_not())
                 .then_ignore(just(';').padded())
                 .map(|((typ, name), init)| {
-                	if let Some(init) = init {
-                		Stmt::DeclD(typ, name, Some(Rc::new(init)))
-                	} else {
-                		Stmt::DeclD(typ, name, None)	
-                	}
+                    if let Some(init) = init {
+                        Stmt::DeclD(typ, name, Some(Rc::new(init)))
+                    } else {
+                        Stmt::DeclD(typ, name, None)
+                    }
                 }),
         ))
     })
@@ -237,11 +230,11 @@ pub fn program_parser<'src>() -> impl Parser<'src, &'src str, Program> {
         .collect::<Vec<Fun>>()
         // TODO: Fix this
         .map(|funs| {
-        	let mut prog: HashMap<Name, Fun> = HashMap::new();
-        	for f in funs {
-        		prog.insert(f.name.clone(), f);
-        	}
-        	Program {funs: prog}
+            let mut prog: BTreeMap<Name, Fun> = BTreeMap::new();
+            for f in funs {
+                prog.insert(f.name.clone(), f);
+            }
+            Program { funs: prog }
         })
 }
 

@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Name, Operation, Stmt, Value, ParamList, Arguments, Type};
+use crate::ast::{Arguments, Expr, Name, Operation, ParamList, Stmt, Type, Value};
 use Control::*;
 use Expr::*;
 use Kont::*;
@@ -6,8 +6,8 @@ use Stmt::*;
 use Value::*;
 use std::collections::HashMap;
 use std::convert::From;
-use std::rc::Rc;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
 struct Address {
@@ -21,69 +21,65 @@ enum Control {
 }
 
 impl fmt::Display for Control {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			AstExpr(expr) => write!(f, "{}", expr),
-			AstStmt(stmt) => write!(f, "{}", stmt),
-		}
-	}
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AstExpr(expr) => write!(f, "{}", expr),
+            AstStmt(stmt) => write!(f, "{}", stmt),
+        }
+    }
 }
 
 //type Env = HashMap<Name, Address>;
 #[derive(Debug, Clone, PartialEq)]
-struct Env (HashMap<Name, Address>);
+struct Env(HashMap<Name, Address>);
 
 impl Env {
-	fn new() -> Self {
-		Self (
-			HashMap::new()
-		)
-	}
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
 }
 
 impl fmt::Display for Env {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "[")?;
-		for (index, (key, value)) in self.0.iter().enumerate() {
-			if index == self.0.len() {
-				write!(f, "{:?} -> {:?}", key, value)?;
-			} else {
-				write!(f, "{:?} -> {:?}, ", key, value)?;
-			}
-		}
-		write!(f, "]")
-	}
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        for (index, (key, value)) in self.0.iter().enumerate() {
+            if index == self.0.len() {
+                write!(f, "{:?} -> {:?}", key, value)?;
+            } else {
+                write!(f, "{:?} -> {:?}, ", key, value)?;
+            }
+        }
+        write!(f, "]")
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Store (HashMap<Address, Rc<Value>>);
+struct Store(HashMap<Address, Rc<Value>>);
 
 impl Store {
-	fn new() -> Self {
-		Self (
-			HashMap::new()
-		)
-	}
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
 }
 
 impl fmt::Display for Store {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "[")?;
-		//let mut index = 0;
-		for (index, (key, value)) in self.0.iter().enumerate() {
-			if index == self.0.len() {
-				write!(f, "{:?} -> {:?}", key, value)?;
-			} else {
-				write!(f, "{:?} -> {:?}, ", key, value)?;
-			}
-			//index += 1;
-		}
-		write!(f, "]")
-	}
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "[")?;
+        //let mut index = 0;
+        for (index, (key, value)) in self.0.iter().enumerate() {
+            if index == self.0.len() {
+                write!(f, "{:?} -> {:?}", key, value)?;
+            } else {
+                write!(f, "{:?} -> {:?}, ", key, value)?;
+            }
+            //index += 1;
+        }
+        write!(f, "]")
+    }
 }
 
 fn function_lookup(_fn_name: Name) -> (Rc<Stmt>, Rc<Vec<Expr>>) {
-	todo!()
+    todo!()
 }
 
 #[derive(Debug, PartialEq)]
@@ -108,9 +104,9 @@ struct Config {
 }
 
 impl fmt::Display for Config {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		writeln!(f, "<{}, {}, {}, {:?}>", self.c, self.e, self.s, self.k)
-	}
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "<{}, {}, {}, {:?}>", self.c, self.e, self.s, self.k)
+    }
 }
 
 impl From<Stmt> for Config {
@@ -199,39 +195,37 @@ impl Config {
                     },
                     Decl(_) => todo!(),
                     Assign(_, _) => todo!(),
-       //              Return(expr) => {
-       //              	let mut k = Rc::clone(&self.k);
-       //              	while let BlockK(_, _, inner_k) = k.as_ref() {
-       //              		k = Rc::clone(inner_k);
-       //              	}
-       //              	if let ReturnK(_, _, _) = k.as_ref() {
-							// Self {
-							// 	c: AstExpr(Rc::clone(expr)),
-							// 	e: Rc::clone(&self.e),
-							// 	s: Rc::clone(&self.s),
-							// 	k: Rc::clone(&k),
-							// }
-       //              	} else {
-       //              		panic!()
-       //              	}
-       //              }
-                    Return(expr) => {
-						match self.k.as_ref() {
-							BlocK(_, _, k) => Self {
-								c: AstExpr(expr.clone()),
-								e: self.e.clone(),
-								s: self.s.clone(),
-								k: k.clone()
-							},
-							ReturnK(_, _) => Self {
-								c: AstExpr(expr.clone()),
-								e: self.e.clone(),
-								s: self.s.clone(),
-								k: self.k.clone(),
-							},
-							_ => panic!("Found some other Kont"), 
-						}
-                    } 
+                    //              Return(expr) => {
+                    //              	let mut k = Rc::clone(&self.k);
+                    //              	while let BlockK(_, _, inner_k) = k.as_ref() {
+                    //              		k = Rc::clone(inner_k);
+                    //              	}
+                    //              	if let ReturnK(_, _, _) = k.as_ref() {
+                    // Self {
+                    // 	c: AstExpr(Rc::clone(expr)),
+                    // 	e: Rc::clone(&self.e),
+                    // 	s: Rc::clone(&self.s),
+                    // 	k: Rc::clone(&k),
+                    // }
+                    //              	} else {
+                    //              		panic!()
+                    //              	}
+                    //              }
+                    Return(expr) => match self.k.as_ref() {
+                        BlocK(_, _, k) => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        ReturnK(_, _) => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        },
+                        _ => panic!("Found some other Kont"),
+                    },
                     Block(_) => todo!(),
                     Break => todo!(),
                     Goto(_) => todo!(),
@@ -313,10 +307,10 @@ impl Config {
                 }
             }
             ReturnK(env, k) => Self {
-            	c: AstExpr(Rc::new(Expr::Val(v1.clone()))),
-            	e: env.clone(),
-            	s: self.s.clone(),
-            	k: k.clone(),
+                c: AstExpr(Rc::new(Expr::Val(v1.clone()))),
+                e: env.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
             },
             _ => todo!(),
         }
@@ -360,15 +354,19 @@ mod tests {
                 Operation::Lt,
                 Rc::new(Val(Rc::new(IntV(4)))),
             )),
-            Rc::new(DeclD(Type::IntT, Name("Hi".to_string()), Some(Rc::new(BinaryOp(
-                Rc::new(Val(Rc::new(IntV(9)))),
-                Operation::Add,
-                Rc::new(BinaryOp(
-                    Rc::new(Val(Rc::new(IntV(27)))),
-                    Operation::Div,
+            Rc::new(DeclD(
+                Type::IntT,
+                Name("Hi".to_string()),
+                Some(Rc::new(BinaryOp(
                     Rc::new(Val(Rc::new(IntV(9)))),
-                )),
-            ))))),
+                    Operation::Add,
+                    Rc::new(BinaryOp(
+                        Rc::new(Val(Rc::new(IntV(27)))),
+                        Operation::Div,
+                        Rc::new(Val(Rc::new(IntV(9)))),
+                    )),
+                ))),
+            )),
             None,
         );
         let mut conf = Config::from(ast);
