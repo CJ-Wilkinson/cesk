@@ -132,16 +132,16 @@ where
     just('{')
         .padded()
         .ignore_then(stmt.repeated().collect::<Vec<_>>().map(|stmts| {
-            Stmt::Block(Rc::new(
+            Stmt::Block(
                 stmts
                     .into_iter()
                     .map(|s| {
                         // let next: Option<Rc<Stmt>> = None;
                         // (Rc::new(s), next)
-                        s
+                        Rc::new(s)
                     })
                     .collect(),
-            ))
+            )
         }))
         .then_ignore(just('}').padded())
 }
@@ -280,7 +280,7 @@ mod tests {
             exp_test("f(1,3)"),
             Ok(Expr::Call(
                 Name("f".to_string()),
-                vec![Expr::Val(Value::IntV(1)), Expr::Val(Value::IntV(3))]
+                Arguments(vec![Expr::Val(Rc::new(Value::IntV(1))), Expr::Val(Rc::new(Value::IntV(3)))])
             ))
         )
     }
@@ -293,8 +293,8 @@ mod tests {
     #[test]
     fn assignment() {
         if let Ok(Stmt::Assign(lhs, rhs)) = stmt_test("x = 3;") {
-            assert_eq!(lhs, Expr::Var(Name("x".to_string())));
-            assert_eq!(rhs, Expr::Val(Value::IntV(3)));
+            assert_eq!(lhs, Rc::new(Expr::Var(Name("x".to_string()))));
+            assert_eq!(rhs, Rc::new(Expr::Val(Rc::new(Value::IntV(3)))));
         }
     }
 
@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn number() {
-        assert_eq!(exp_test("3"), Ok(Expr::Val(Value::IntV(3))))
+        assert_eq!(exp_test("3"), Ok(Expr::Val(Rc::new(Value::IntV(3)))))
     }
 
     #[test]

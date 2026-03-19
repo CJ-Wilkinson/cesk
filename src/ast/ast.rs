@@ -157,7 +157,7 @@ pub enum Stmt {
     The block will hold a vector of <Stmt>.
     Block ::= '{' <Stmt>* '}'
     */
-    Block(Rc<Vec<Rc<Stmt>>>),
+    Block(Vec<Rc<Stmt>>),
     /*
     This <Goto> will hold its jump location <Stmt>.
     */
@@ -167,12 +167,12 @@ pub enum Stmt {
 }
 
 impl Iterator for Stmt {
-    type Item = Stmt;
+    type Item = Rc<Stmt>;
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::Block(stmts) => {
                 let ret = stmts[0].clone();
-                *self = Self::Block(Rc::new(Vec::from(stmts[1..].as_ref())));
+                *self = Self::Block(Vec::from(stmts[1..].as_ref()));
                 Some(ret)
             },
             _ => panic!("statement has no successors")
@@ -223,13 +223,13 @@ mod tests {
         use Stmt::Block as Block;
         use Stmt::Decl as Decl;
 
-        let dec = Decl(Name("x".to_string()));
-        let dec2 = Decl(Name("y".to_string()));
+        let dec = Rc::new(Decl(Name("x".to_string())));
+        let dec2 = Rc::new(Decl(Name("y".to_string())));
 
-        let mut bl = Block(Rc::new(vec![dec, dec2]));
+        let mut bl = Block(vec![dec, dec2]);
 
-        assert_eq!(bl.next().unwrap(), Decl(Name("x".to_string())));
-        assert_eq!(bl.next().unwrap(), Decl(Name("y".to_string())));
+        assert_eq!(*bl.next().unwrap().as_ref(), Decl(Name("x".to_string())));
+        assert_eq!(*bl.next().unwrap().as_ref(), Decl(Name("y".to_string())));
         // println!("bl: {:?}", bl.next());
         // println!("bl: {:?}", bl.next());
     }
