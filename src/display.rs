@@ -108,6 +108,6 @@ impl Display for Stmt {
 
 impl Display for ast::Fun {
     fn fmt(&self, f: &mut Formatter<'_> ) -> Result<(), Error> {
-        write!(f, "{}({:?}){{ {} }}", self.name, self.args, self.body)
+        write!(f, "{}({:?}){{ {} }}", self.name, self.params, self.body)
     }
 }
