@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -9,7 +9,7 @@ pub enum Value {
     IntV(i32),
     BoolV(bool),
     UnitV,
-    // ArrayV(Vec<Value>),
+    // ArrayV(Vec<Value>), TODO: This
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -50,41 +50,12 @@ impl Operation {
     }
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-// pub enum CompareBinop {
-//     Eq,
-//     Neq,
-//     Lt,
-//     Gt,
-//     Lte,
-//     Gte,
-// }
-
-// impl CompareBinop {
-//     pub fn call(&self, lhs: i32, rhs: i32) -> bool {
-//         match self {
-//             Self::Eq => lhs == rhs,
-//             Self::Neq => lhs != rhs,
-//             Self::Lt => lhs < rhs,
-//             Self::Gt => lhs > rhs,
-//             Self::Lte => lhs <= rhs,
-//             Self::Gte => lhs >= rhs,
-//         }
-//     }
-// }
-
-/// # Expressions
-/// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
-///     | fn call | []
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
     Val(Rc<Value>),
-
     Neg(Rc<Expr>),
-    Op(Rc<Expr>, Operation, Rc<Expr>),
-    //CompareOp(Rc<Expr>, CompareBinop, Rc<Expr>),
+    BinaryOp(Rc<Expr>, Operation, Rc<Expr>),
     Var(Name),
-
     Call(Name, ParamList),
     Array(Vec<Expr>),
     Index(Name, Rc<Expr>),
@@ -92,52 +63,33 @@ pub enum Expr {
     Ref(Name),
 }
 
-// #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-// pub enum Type {
-//     IntT,
-//     BoolT,
-//     VoidT,
-//     ArrayT,
-// }
-
-/// # Statements
-/// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
-///     | continue
-
-
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Type {
+    IntT,
+    BoolT,
+    UnitT,
+    ArrayT(Box<Type>),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
     If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
     Assign(Rc<Expr>, Rc<Expr>),
     ExprStmt(Rc<Expr>),
-    Decl(Name, Option<Rc<Expr>>),
+    Decl(Type, Name, Option<Rc<Expr>>),
     Return(Rc<Expr>),
-    Block(BTreeMap<Rc<Stmt>, Option<Rc<Stmt>>>),
+    Block(Rc<Vec<Stmt>>),
     Break,
     Goto(Rc<Stmt>),
     Continue,
 }
 
-/*
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Stmt {
-    pub label: Option<Name>,
-    pub contents: StmtContents<'tree>,
-    pub successor: Option<&'tree Stmt>,
-    pub parent: Option<&'tree Stmt>,
-}
-*/
-
 #[derive(Debug, Clone)]
 pub struct Arguments(pub Vec<Expr>);
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ParamList(pub Vec<Name>);
+pub struct ParamList(pub Vec<(Type, Name)>);
 
-/// # Function
-/// a function consists of a return type, a name, a list of args, and a body statement
 #[derive(Debug, Clone)]
 pub struct Fun {
     pub name: Name,
@@ -145,9 +97,7 @@ pub struct Fun {
     pub body: Stmt,
 }
 
-// TODO: Change to HashMap
-
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub funs: Vec<Fun>,
+    pub funs: HashMap<Name, Fun>,
 }
