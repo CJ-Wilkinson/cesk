@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::iter::Iterator;
 
 /*
 Name ::= [a-zA-z][a-zA-Z0-9_]*
@@ -165,6 +166,21 @@ pub enum Stmt {
     Break,
 }
 
+impl Iterator for Stmt {
+    type Item = Stmt;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Block(stmts) => {
+                let ret = stmts[0].clone();
+                *self = Self::Block(Rc::new(Vec::from(stmts[1..].as_ref())));
+                Some(ret)
+            },
+            _ => panic!("statement has no successors")
+        }
+    }
+}
+
+
 /*
 Arguments ::= '(' <Expr>* ')'
 */
@@ -194,4 +210,27 @@ Program ::= <Fun>+
 #[derive(Debug, Clone)]
 pub struct Program {
     pub funs: BTreeMap<Name, Fun>,
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn block_iter() {
+        use Stmt::Block as Block;
+        use Stmt::Decl as Decl;
+
+        let dec = Decl(Name("x".to_string()));
+        let dec2 = Decl(Name("y".to_string()));
+
+        let mut bl = Block(Rc::new(vec![dec, dec2]));
+
+        assert_eq!(bl.next().unwrap(), Decl(Name("x".to_string())));
+        assert_eq!(bl.next().unwrap(), Decl(Name("y".to_string())));
+        // println!("bl: {:?}", bl.next());
+        // println!("bl: {:?}", bl.next());
+    }
 }
