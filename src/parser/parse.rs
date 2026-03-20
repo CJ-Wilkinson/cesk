@@ -10,7 +10,7 @@ pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
     choice((
         text::ascii::keyword("int").padded().to(Type::IntT),
         text::ascii::keyword("bool").padded().to(Type::BoolT),
-        text::ascii::keyword("()").padded().to(Type::UnitT),
+        text::ascii::keyword("unit").padded().to(Type::UnitT),
     ))
 }
 
@@ -213,7 +213,7 @@ where
                 .collect::<Vec<_>>(),
         )
         .then_ignore(just(')').padded())
-        .then(block_parser(stmt))
+        .then(stmt)
         .map(|(((typ, name), args), body)| Fun {
             typ,
             name,
@@ -280,7 +280,10 @@ mod tests {
             exp_test("f(1,3)"),
             Ok(Expr::Call(
                 Name("f".to_string()),
-                Arguments(vec![Expr::Val(Rc::new(Value::IntV(1))), Expr::Val(Rc::new(Value::IntV(3)))])
+                Arguments(vec![
+                    Expr::Val(Rc::new(Value::IntV(1))),
+                    Expr::Val(Rc::new(Value::IntV(3)))
+                ])
             ))
         )
     }
@@ -310,16 +313,16 @@ mod tests {
 
     #[test]
     fn one_fun() {
-        assert!(program_test("void test() {}").is_ok())
+        assert!(program_test("unit test() {}").is_ok())
     }
 
     #[test]
     fn one_fun_extra_char() {
-        assert!(program_test("void test() {}}").is_err())
+        assert!(program_test("unit test() {}}").is_err())
     }
 
     #[test]
     fn one_fun_missing_char() {
-        assert!(program_test("void test() {").is_err())
+        assert!(program_test("unit test() {").is_err())
     }
 }

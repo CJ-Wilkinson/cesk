@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
-use std::rc::Rc;
 use std::iter::Iterator;
+use std::rc::Rc;
 
 /*
 Name ::= [a-zA-z][a-zA-Z0-9_]*
@@ -109,7 +109,7 @@ pub enum Type {
     ArrayT(Rc<Type>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
     /*
     Declaration that will be desugared
@@ -174,12 +174,11 @@ impl Iterator for Stmt {
                 let ret = stmts[0].clone();
                 *self = Self::Block(Vec::from(stmts[1..].as_ref()));
                 Some(ret)
-            },
-            _ => panic!("statement has no successors")
+            }
+            _ => panic!("statement has no successors"),
         }
     }
 }
-
 
 /*
 Arguments ::= '(' <Expr>* ')'
@@ -212,16 +211,14 @@ pub struct Program {
     pub funs: BTreeMap<Name, Fun>,
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn block_iter() {
-        use Stmt::Block as Block;
-        use Stmt::Decl as Decl;
+        use Stmt::Block;
+        use Stmt::Decl;
 
         let dec = Rc::new(Decl(Name("x".to_string())));
         let dec2 = Rc::new(Decl(Name("y".to_string())));

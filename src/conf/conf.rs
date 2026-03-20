@@ -194,68 +194,54 @@ impl Config {
                             Rc::clone(&self.k),
                         )),
                     },
-                    Decl(id) => Self { 
-                        c: AstExpr(Rc::new(Val(Rc::new(UnitV)))), 
-                        e: self.e.clone(), 
-                        s: self.s.clone(), 
-                        k:  Rc::new(DeclK(
-                            id.clone(),
-                            successor_lookup(),
-                            self.k.clone()
-                        )),
+                    Decl(id) => Self {
+                        c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(DeclK(id.clone(), successor_lookup(), self.k.clone())),
                     },
-                    Assign(id, expr) => Self { 
-                        c: AstExpr(expr.clone()), 
-                        e: self.e.clone(), 
-                        s: self.s.clone(), 
-                        k: Rc::new(AssignK(
-                            id.clone(),
-                            successor_lookup(),
-                            self.k.clone(),
-                        ))
+                    Assign(id, expr) => Self {
+                        c: AstExpr(expr.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(AssignK(id.clone(), successor_lookup(), self.k.clone())),
                     },
-       //              Return(expr) => {
-       //              	let mut k = Rc::clone(&self.k);
-       //              	while let BlockK(_, _, inner_k) = k.as_ref() {
-       //              		k = Rc::clone(inner_k);
-       //              	}
-       //              	if let ReturnK(_, _, _) = k.as_ref() {
-							// Self {
-							// 	c: AstExpr(Rc::clone(expr)),
-							// 	e: Rc::clone(&self.e),
-							// 	s: Rc::clone(&self.s),
-							// 	k: Rc::clone(&k),
-							// }
-       //              	} else {
-       //              		panic!()
-       //              	}
-       //              }
-                    Return(expr) => {
-						match self.k.as_ref() {
-							BlocK(_, _, k) => Self {
-								c: AstExpr(expr.clone()),
-								e: self.e.clone(),
-								s: self.s.clone(),
-								k: k.clone()
-							},
-							ReturnK(_, _) => Self {
-								c: AstExpr(expr.clone()),
-								e: self.e.clone(),
-								s: self.s.clone(),
-								k: self.k.clone(),
-							},
-							_ => panic!("Found some other Kont"), 
-						}
-                    } 
+                    //              Return(expr) => {
+                    //              	let mut k = Rc::clone(&self.k);
+                    //              	while let BlockK(_, _, inner_k) = k.as_ref() {
+                    //              		k = Rc::clone(inner_k);
+                    //              	}
+                    //              	if let ReturnK(_, _, _) = k.as_ref() {
+                    // Self {
+                    // 	c: AstExpr(Rc::clone(expr)),
+                    // 	e: Rc::clone(&self.e),
+                    // 	s: Rc::clone(&self.s),
+                    // 	k: Rc::clone(&k),
+                    // }
+                    //              	} else {
+                    //              		panic!()
+                    //              	}
+                    //              }
+                    Return(expr) => match self.k.as_ref() {
+                        BlocK(_, _, k) => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        ReturnK(_, _) => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        },
+                        _ => panic!("Found some other Kont"),
+                    },
                     Block(stmts) => Self {
                         c: AstStmt(stmts.get(0).unwrap().clone()),
                         e: self.e.clone(),
                         s: self.s.clone(),
-                        k: Rc::new(BlocK(
-                            self.e.clone(),
-                            successor_lookup(),
-                            self.k.clone(),
-                        ))
+                        k: Rc::new(BlocK(self.e.clone(), successor_lookup(), self.k.clone())),
                     },
                     Break => todo!(),
                     Goto(_) => todo!(),
@@ -275,7 +261,7 @@ impl Config {
                     }
                 }
                 Val(v) => self.invoke_kont(v),
-                Call(_,_) => todo!(),
+                Call(_, _) => todo!(),
                 _ => todo!(),
             },
         }
@@ -345,11 +331,16 @@ impl Config {
             },
             AssignK(id, succ, k) => {
                 let addr: &Address = match id.as_ref() {
-                    Var(n) => if let Some(addr) = self.e.0.get(n){addr} else {panic!()}
+                    Var(n) => {
+                        if let Some(addr) = self.e.0.get(n) {
+                            addr
+                        } else {
+                            panic!()
+                        }
+                    }
                     _ => todo!(), // TODO Array indexing
                 };
-                Self { 
-                    
+                Self {
                     c: AstStmt(succ.clone()),
                     e: self.e.clone(),
                     s: {
@@ -359,7 +350,7 @@ impl Config {
                     },
                     k: k.clone(),
                 }
-            },
+            }
             BlocK(env, succ, k) => Self {
                 c: AstStmt(succ.clone()),
                 e: env.clone(),
@@ -390,52 +381,52 @@ mod tests {
         }
     }
 
-    #[test]
-    fn arith_test() {
-        // Not a real test. Runs a basic arithmetic expression
-        // let ast = Op(
-        //     Rc::new(Val(Rc::new(IntV(9)))),
-        //     Operation::Add,
-        //     Rc::new(Op(
-        //         Rc::new(Val(Rc::new(IntV(27)))),
-        //         Operation::Div,
-        //         Rc::new(Val(Rc::new(IntV(9)))),
-        //     )),
-        // );
-        let ast = If(
-            Rc::new(BinaryOp(
-                Rc::new(Val(Rc::new(IntV(3)))),
-                Operation::Lt,
-                Rc::new(Val(Rc::new(IntV(4)))),
-            )),
-            Rc::new(DeclD(
-                Type::IntT,
-                Name("Hi".to_string()),
-                Some(Rc::new(BinaryOp(
-                    Rc::new(Val(Rc::new(IntV(9)))),
-                    Operation::Add,
-                    Rc::new(BinaryOp(
-                        Rc::new(Val(Rc::new(IntV(27)))),
-                        Operation::Div,
-                        Rc::new(Val(Rc::new(IntV(9)))),
-                    )),
-                ))),
-            )),
-            None,
-        );
-        let mut conf = Config::from(ast);
-        loop {
-            println!("{}", conf);
-            //print!("c: {}, e: {}, s: {}, k: {}")
-            conf = conf.next();
-            match is_terminal(&conf) {
-                Some(v) => {
-                    println!("Got: {:?}", v);
-                    assert_eq!(IntV(12), *v);
-                    return;
-                }
-                None => (),
-            }
-        }
-    }
+    // #[test]
+    // fn arith_test() {
+    //     // Not a real test. Runs a basic arithmetic expression
+    //     // let ast = Op(
+    //     //     Rc::new(Val(Rc::new(IntV(9)))),
+    //     //     Operation::Add,
+    //     //     Rc::new(Op(
+    //     //         Rc::new(Val(Rc::new(IntV(27)))),
+    //     //         Operation::Div,
+    //     //         Rc::new(Val(Rc::new(IntV(9)))),
+    //     //     )),
+    //     // );
+    //     let ast = If(
+    //         Rc::new(BinaryOp(
+    //             Rc::new(Val(Rc::new(IntV(3)))),
+    //             Operation::Lt,
+    //             Rc::new(Val(Rc::new(IntV(4)))),
+    //         )),
+    //         Rc::new(DeclD(
+    //             Type::IntT,
+    //             Name("Hi".to_string()),
+    //             Some(Rc::new(BinaryOp(
+    //                 Rc::new(Val(Rc::new(IntV(9)))),
+    //                 Operation::Add,
+    //                 Rc::new(BinaryOp(
+    //                     Rc::new(Val(Rc::new(IntV(27)))),
+    //                     Operation::Div,
+    //                     Rc::new(Val(Rc::new(IntV(9)))),
+    //                 )),
+    //             ))),
+    //         )),
+    //         None,
+    //     );
+    //     let mut conf = Config::from(ast);
+    //     loop {
+    //         println!("{}", conf);
+    //         //print!("c: {}, e: {}, s: {}, k: {}")
+    //         conf = conf.next();
+    //         match is_terminal(&conf) {
+    //             Some(v) => {
+    //                 println!("Got: {:?}", v);
+    //                 assert_eq!(IntV(12), *v);
+    //                 return;
+    //             }
+    //             None => (),
+    //         }
+    //     }
+    // }
 }

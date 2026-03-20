@@ -89,9 +89,13 @@ impl Display for Stmt {
             Self::Return(ex) => {
                 write!(f, "return {}", ex)
             }
-            Self::Block(_v) => {
+            Self::Block(v) => {
                 //write!(f, "{{ {:?} }}", btree.keys().clone())
-                write!(f, "")
+                write!(f, "{{")?;
+                for stmt in v {
+                    write!(f, "{}", stmt)?;
+                }
+                write!(f, "}}")
             }
             Self::Break => write!(f, "break;"),
             Self::Goto(st) => write!(f, "goto: {};", st),
