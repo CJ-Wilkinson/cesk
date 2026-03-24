@@ -10,6 +10,12 @@ pub fn program_to_dot(program: &Program) -> String {
     viz.finish()
 }
 
+pub fn expr_to_dot(program: &Expr) -> String {
+    let mut viz = GraphVizVisitor::new();
+    program.traverse(&mut viz);
+    viz.finish()
+}
+
 pub fn dot_to_png(dot: &str, path: &str) -> io::Result<()> {
     fs::create_dir_all("out")?;
 

@@ -42,9 +42,9 @@ mod tests {
             Ok(ast) => {
                 ast.traverse(&mut sv);
                 assert_eq!(sv.map.len(), 3);
-                // for (key, value) in sv.map {
-                // 	println!("{}\t->\t{}", key, value);
-                // }
+                for (key, value) in sv.map {
+                	println!("{}\t->\t{}", key, value);
+                }
             }
             Err(e) => assert!(false),
         }

@@ -97,7 +97,7 @@ enum Kont {
 }
 
 #[derive(Debug)]
-struct Config {
+pub struct Config {
     c: Control,
     e: Rc<Env>,
     s: Rc<Store>,
@@ -153,7 +153,7 @@ impl Config {
             k: Rc::clone(&self.k),
         }
     }
-    fn next(&self) -> Self {
+    pub fn next(&self) -> Self {
         // Match control
         match &self.c {
             AstStmt(s) => {
@@ -272,7 +272,7 @@ impl Config {
                 // Is the expression a value?
                 match expr.as_ref() {
                     Val(v2) => Self {
-                        c: AstExpr(Rc::new(Val(Rc::new(op.call(v1, v2))))),
+                        c: AstExpr(Rc::new(Val(Rc::new(op.call(v2, v1))))),
                         e: Rc::clone(&self.e),
                         s: Rc::clone(&self.s),
                         k: Rc::clone(k),

@@ -7,21 +7,35 @@ pub mod display;
 pub mod parser;
 pub mod visit;
 
+pub use visit::viz;
+pub use visit::viz::expr_to_dot;
+pub use visit::viz::dot_to_png;
+
 use chumsky::Parser;
 
-use crate::parser::parse::program_parser;
+
+use conf::Config;
+
+use crate::parser::parse::exp_parser;
 
 fn main() {
-    // println!("{}", &std::env::args().nth(1).unwrap());
-    // parse::parse(&std::env::args().nth(1).unwrap());
     let mut input = String::new();
 
     io::stdin()
         .read_line(&mut input)
         .expect("Failed to read line");
 
-    match program_parser().parse(&input).into_result() {
-        Ok(ast) => println!("{:?}", ast),
+    match exp_parser().parse(&input).into_result() {
+        Ok(ast) => {
+        	// Run the visitor
+			let _ = dot_to_png(&expr_to_dot(&ast), "thing");
+			
+        	let mut sigma = Config::from(ast);
+        	loop {
+        		println!("{}", sigma);
+        		sigma = sigma.next();
+        	}
+        },
         Err(e) => println!("{:?}", e),
     }
 }
