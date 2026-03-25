@@ -35,6 +35,10 @@ pub fn mult_div_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clon
     ))
 }
 
+// pub fn array_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
+// 	just('[').padded().ignore_then(atomic_exp_parser().repeat().padded().collect()).then_ignore(just(']'))
+// }
+
 pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
     choice((add_sub_parser(), mult_div_parser()))
 }
@@ -98,6 +102,14 @@ where
             }),
     ))
 }
+
+// pub fn array_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
+// 	just('[')
+// 		.padded()
+// 		.ignore_then(exp_parser().separated_by(just(',')).collect::<Vec<Expr>>())
+// 		.then_ignore(just(']'))
+// 		// .map(|v| {})
+// }
 
 pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     fn make_arith(lhs: Expr, op: Operation, rhs: Expr) -> Expr {
@@ -218,7 +230,7 @@ where
             typ,
             name,
             params: ParamList(args),
-            body,
+            body: Rc::new(body),
         })
 }
 

@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 use std::iter::Iterator;
 use std::rc::Rc;
 
+use crate::conf::Address;
+
 /*
 Name ::= [a-zA-z][a-zA-Z0-9_]*
 */
@@ -16,9 +18,12 @@ pub enum Value {
     IntV(i32),
     BoolV(bool),
     UnitV,
-    // TODO: Arrays
+    ArrayV(
+    	usize,		// Size of array
+    	Address,	// First address of array
+    )
 }
-
+// thing = [1, 2, 3]
 /*
 Operation ::= '+' | '*' | '-' | '/' | '%' | '==' | '!=' | '<' | '>' | '<=' | '>='
 */
@@ -85,8 +90,8 @@ pub enum Expr {
     Call(Name, Arguments),
     Array(Vec<Expr>),
     Index(Name, Rc<Expr>),
-    Deref(Rc<Expr>),
-    Ref(Name),
+    // Deref(Rc<Expr>),
+    // Ref(Name),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -200,7 +205,7 @@ pub struct Fun {
     pub typ: Type,
     pub name: Name,
     pub params: ParamList,
-    pub body: Stmt,
+    pub body: Rc<Stmt>,
 }
 
 /*
@@ -209,6 +214,20 @@ Program ::= <Fun>+
 #[derive(Debug, Clone)]
 pub struct Program {
     pub funs: BTreeMap<Name, Fun>,
+}
+
+impl Program {
+	pub fn new() -> Self {
+		Self {
+			funs: BTreeMap::new()
+		}
+	}
+	pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
+		match self.funs.get(&Name("main".to_string())) {
+			Some(fun) => Ok(fun.body.clone()),
+			None => Err("failed to get entry point")
+		}
+	}
 }
 
 #[cfg(test)]

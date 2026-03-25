@@ -61,7 +61,7 @@ impl GraphVizVisitor {
         let id = self.next_id;
         self.next_id += 1;
 
-        let lbel = escape_dot_label(label.as_ref());
+//         let lbel = escape_dot_label(label.as_ref());
 
         self.output
             .push_str(&format!("   n{id} [label=\"{label}\"];\n"));
@@ -94,6 +94,7 @@ impl Visitor for GraphVizVisitor {
             Value::IntV(n) => format!("Value::IntV({n})"),
             Value::BoolV(b) => format!("Value::BoolV({b})"),
             Value::UnitV => "Value::UnitV".to_string(),
+            Value::ArrayV(size, _) => format!("Array(size: {})", size),
         };
         self.enter_node(label);
     }
@@ -109,8 +110,8 @@ impl Visitor for GraphVizVisitor {
             Expr::Call(..) => "Expr::Call".to_string(),
             Expr::Array(..) => "Expr::Array".to_string(),
             Expr::Index(..) => "Expr::Index".to_string(),
-            Expr::Deref(..) => "Expr::Deref".to_string(),
-            Expr::Ref(..) => "Expr::Ref".to_string(),
+            // Expr::Deref(..) => "Expr::Deref".to_string(),
+            // Expr::Ref(..) => "Expr::Ref".to_string(),
         };
         self.enter_node(label);
     }

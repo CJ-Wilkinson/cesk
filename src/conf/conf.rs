@@ -1,17 +1,34 @@
-use crate::ast::{Arguments, Expr, Name, Operation, ParamList, Stmt, Type, Value};
+use crate::ast::*;
+
 use Control::*;
 use Expr::*;
 use Kont::*;
 use Stmt::*;
 use Value::*;
+
 use std::collections::HashMap;
 use std::convert::From;
 use std::fmt;
 use std::rc::Rc;
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone)]
-struct Address {
+use super::prog_handler::ProgramHandler;
+
+#[derive(Debug, Eq, PartialOrd, Ord, Hash, PartialEq, Clone)]
+pub struct Address {
     a: usize,
+}
+
+impl Address {
+	pub fn get_address(&mut self) -> Address {
+		let addr = self.a;
+		self.a += 1;
+		Address{a: addr}
+	}
+	pub fn new() -> Self {
+		Self {
+			a: 0
+		}
+	}
 }
 
 #[derive(Debug)]
@@ -29,27 +46,35 @@ impl fmt::Display for Control {
     }
 }
 
-//type Env = HashMap<Name, Address>;
 #[derive(Debug, Clone, PartialEq)]
-struct Env(HashMap<Name, Address>);
+pub struct Env(pub HashMap<Name, Address>);
 
 impl Env {
     fn new() -> Self {
         Self(HashMap::new())
     }
+    fn insert(&mut self, name: Name, addr: Address) {
+    	self.0.insert(name, addr);
+    }
+    fn get(&mut self, name: &Name) -> Option<&Address> {
+    	self.0.get(name)
+    }
 }
 
 impl fmt::Display for Env {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[")?;
-        for (index, (key, value)) in self.0.iter().enumerate() {
-            if index == self.0.len() {
-                write!(f, "{:?} -> {:?}", key, value)?;
-            } else {
-                write!(f, "{:?} -> {:?}, ", key, value)?;
-            }
-        }
-        write!(f, "]")
+        // write!(f, "[")?;
+        // for (index, (key, value)) in self.0.iter().enumerate() {
+        //     if index == self.0.len() {
+        //         write!(f, "{:?} -> {:?}", key, value)?;
+        //     } else {
+        //         write!(f, "{:?} -> {:?}, ", key, value)?;
+        //     }
+        // }
+        // write!(f, "]")
+        write!(f, "[{}]",
+			self.0.iter().map(|(key, value)| format!("{:?} -> {:?}", key, value)).collect::<Vec<_>>().join(", "),
+        )
     }
 }
 
@@ -60,26 +85,37 @@ impl Store {
     fn new() -> Self {
         Self(HashMap::new())
     }
-}
-
-impl fmt::Display for Store {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[")?;
-        //let mut index = 0;
-        for (index, (key, value)) in self.0.iter().enumerate() {
-            if index == self.0.len() {
-                write!(f, "{:?} -> {:?}", key, value)?;
-            } else {
-                write!(f, "{:?} -> {:?}, ", key, value)?;
-            }
-            //index += 1;
-        }
-        write!(f, "]")
+    fn insert(&mut self, addr: Address, val: Rc<Value>) {
+    	self.0.insert(addr, val);
+    }
+    fn get(&mut self, addr: &Address) -> Option<Rc<Value>> {
+    	match self.0.get(addr) {
+    		Some(val) => Some(val.clone()),
+    		None => None,
+    	}
     }
 }
 
-fn function_lookup(_fn_name: Name) -> (Rc<Stmt>, Rc<Vec<Expr>>) {
-    todo!()
+
+impl fmt::Display for Store {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    	write!(f, "[{}]",
+			self.0.iter().map(|(key, value)| format!("{:?} -> {:?}", key, value)).collect::<Vec<_>>().join(", "),
+    	)
+    //     write!(f, "[")?;
+    //     fo
+    //     //let mut index = 0;
+    //     for (index, (key, value)) in self.0.iter().enumerate() {
+    //         if index == self.0.len() {
+    //             write!(f, "{:?} -> {:?}", key, value)?;
+    //         } else {
+    //             write!(f, "{:?} -> {:?}, ", key, value)?;
+    //         }
+    //         //index += 1;
+    //     }
+    //     write!(f, "]")
+    // }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -110,10 +146,10 @@ impl fmt::Display for Config {
     }
 }
 
-impl From<Stmt> for Config {
-    fn from(s: Stmt) -> Self {
+impl From<&Rc<Stmt>> for Config {
+    fn from(s: &Rc<Stmt>) -> Self {
         Self {
-            c: AstStmt(Rc::new(s)),
+            c: AstStmt(s.clone()),
             e: Rc::new(Env::new()),
             s: Rc::new(Store::new()),
             k: Rc::new(Mt),
@@ -121,9 +157,6 @@ impl From<Stmt> for Config {
     }
 }
 
-fn successor_lookup() -> Rc<Stmt> {
-    Rc::new(Break)
-}
 
 impl From<Expr> for Config {
     fn from(e: Expr) -> Self {
@@ -153,7 +186,7 @@ impl Config {
             k: Rc::clone(&self.k),
         }
     }
-    pub fn next(&self) -> Self {
+    pub fn next(&self, handler: &mut ProgramHandler) -> Self {
         // Match control
         match &self.c {
             AstStmt(s) => {
@@ -177,7 +210,7 @@ impl Config {
                                 Some(false_b) => Some(Rc::clone(false_b)),
                                 None => None,
                             },
-                            successor_lookup(), // TODO: Successor function
+                            handler.successor_lookup(s.clone()), // TODO: Successor function
                             Rc::clone(&self.k),
                         )),
                     },
@@ -190,21 +223,26 @@ impl Config {
                         s: Rc::clone(&self.s),
                         k: Rc::new(DeclK(
                             id.clone(),         // TODO should be copy?
-                            successor_lookup(), // TODO: Successor function
+                            handler.successor_lookup(s.clone()),
                             Rc::clone(&self.k),
                         )),
                     },
                     Decl(id) => Self {
+                    	/* Introduce variable into environment */
                         c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
-                        e: self.e.clone(),
+                        e: {
+                        	let mut new_env = (*self.e).clone();
+                        	new_env.0.insert(id.clone(), handler.get_address());
+                        	Rc::new(new_env)
+                        },
                         s: self.s.clone(),
-                        k: Rc::new(DeclK(id.clone(), successor_lookup(), self.k.clone())),
+                        k: Rc::new(DeclK(id.clone(), handler.successor_lookup(s.clone()), self.k.clone())),
                     },
                     Assign(id, expr) => Self {
                         c: AstExpr(expr.clone()),
                         e: self.e.clone(),
                         s: self.s.clone(),
-                        k: Rc::new(AssignK(id.clone(), successor_lookup(), self.k.clone())),
+                        k: Rc::new(AssignK(id.clone(), handler.successor_lookup(s.clone()), self.k.clone())),
                     },
                     //              Return(expr) => {
                     //              	let mut k = Rc::clone(&self.k);
@@ -237,11 +275,16 @@ impl Config {
                         },
                         _ => panic!("Found some other Kont"),
                     },
-                    Block(stmts) => Self {
+                    Block(stmts) => {
+
+                    	println!("Found block! Going to: {}", stmts.get(0).unwrap());
+
+                    	Self {
                         c: AstStmt(stmts.get(0).unwrap().clone()),
                         e: self.e.clone(),
                         s: self.s.clone(),
-                        k: Rc::new(BlocK(self.e.clone(), successor_lookup(), self.k.clone())),
+                        k: Rc::new(BlocK(self.e.clone(), handler.successor_lookup(s.clone()), self.k.clone())),
+                        }
                     },
                     Break => todo!(),
                     Goto(_) => todo!(),
@@ -260,13 +303,36 @@ impl Config {
                         )
                     }
                 }
-                Val(v) => self.invoke_kont(v),
+                Array(exprs) => {
+                	// Get the first address
+                	let addr = handler.get_address();
+                	// Build the array handler value
+                	let array_ref = Value::ArrayV(exprs.len(), addr);
+                	// Get new store
+           			let mut new_store = (*self.s).clone();
+           			// new_store.0.insert(addr.clone(), v1.clone());	
+                	for expr in exprs.iter() {
+                		if let Val(v) = expr {
+                			
+							new_store.0.insert(handler.get_address(), v.clone());
+                		}
+                	}
+                	// Make new environment
+					// Place the handler in the control
+					Self {
+						c: AstExpr(Rc::new(Val(Rc::new(array_ref)))),
+						e: self.e.clone(),
+						s: Rc::new(new_store),
+						k: self.k.clone(),
+					}
+                }
+                Val(v) => self.invoke_kont(v, handler),
                 Call(_, _) => todo!(),
                 _ => todo!(),
             },
         }
     }
-    fn invoke_kont(&self, v1: &Rc<Value>) -> Config {
+    fn invoke_kont(&self, v1: &Rc<Value>, handler: &mut ProgramHandler) -> Config {
         match self.k.as_ref() {
             OpK(op, expr, k) => {
                 // Is the expression a value?
@@ -307,7 +373,8 @@ impl Config {
             },
             DeclK(id, succ, k) => {
                 // Get new address
-                let addr = Address { a: 0 }; // TODO  actual address look up
+                let addr = handler.get_address();
+                
                 Self {
                     c: AstStmt(Rc::clone(succ)),
                     e: {

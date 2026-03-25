@@ -1,6 +1,7 @@
-pub mod successor_visitor;
-pub mod visit;
-pub mod viz;
+mod successor_visitor;
+mod visit;
+mod viz;
 
-pub use viz::expr_to_dot;
-pub use viz::dot_to_png;
+pub use viz::{expr_to_dot, dot_to_png};
+pub use successor_visitor::SuccessorVisitor;
+pub use visit::*;
