@@ -61,7 +61,7 @@ impl GraphVizVisitor {
         let id = self.next_id;
         self.next_id += 1;
 
-//         let lbel = escape_dot_label(label.as_ref());
+        //         let lbel = escape_dot_label(label.as_ref());
 
         self.output
             .push_str(&format!("   n{id} [label=\"{label}\"];\n"));

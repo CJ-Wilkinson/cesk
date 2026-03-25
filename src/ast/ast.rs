@@ -19,9 +19,9 @@ pub enum Value {
     BoolV(bool),
     UnitV,
     ArrayV(
-    	usize,		// Size of array
-    	Address,	// First address of array
-    )
+        usize,   // Size of array
+        Address, // First address of array
+    ),
 }
 // thing = [1, 2, 3]
 /*
@@ -217,17 +217,17 @@ pub struct Program {
 }
 
 impl Program {
-	pub fn new() -> Self {
-		Self {
-			funs: BTreeMap::new()
-		}
-	}
-	pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
-		match self.funs.get(&Name("main".to_string())) {
-			Some(fun) => Ok(fun.body.clone()),
-			None => Err("failed to get entry point")
-		}
-	}
+    pub fn new() -> Self {
+        Self {
+            funs: BTreeMap::new(),
+        }
+    }
+    pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
+        match self.funs.get(&Name("main".to_string())) {
+            Some(fun) => Ok(fun.body.clone()),
+            None => Err("failed to get entry point"),
+        }
+    }
 }
 
 #[cfg(test)]
