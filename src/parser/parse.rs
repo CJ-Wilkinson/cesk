@@ -6,13 +6,13 @@ use crate::ast::*;
 use chumsky::pratt::{infix, left, none, prefix};
 use chumsky::prelude::{IterParser, Parser, choice, just, recursive, text};
 
-// pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
-//     choice((
-//         text::ascii::keyword("int").padded().to(Type::IntT),
-//         text::ascii::keyword("bool").padded().to(Type::BoolT),
-//         text::ascii::keyword("unit").padded().to(Type::UnitT),
-//     ))
-// }
+pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
+    choice((
+        text::ascii::keyword("int").padded().to(Type::IntT),
+        text::ascii::keyword("bool").padded().to(Type::BoolT),
+        text::ascii::keyword("unit").padded().to(Type::UnitT),
+    ))
+}
 
 pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
     text::ascii::ident()
