@@ -6,13 +6,13 @@ use crate::ast::*;
 use chumsky::pratt::{infix, left, none, prefix};
 use chumsky::prelude::{IterParser, Parser, choice, just, recursive, text};
 
-pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
-    choice((
-        text::ascii::keyword("int").padded().to(Type::IntT),
-        text::ascii::keyword("bool").padded().to(Type::BoolT),
-        text::ascii::keyword("unit").padded().to(Type::UnitT),
-    ))
-}
+// pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
+//     choice((
+//         text::ascii::keyword("int").padded().to(Type::IntT),
+//         text::ascii::keyword("bool").padded().to(Type::BoolT),
+//         text::ascii::keyword("unit").padded().to(Type::UnitT),
+//     ))
+// }
 
 pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
     text::ascii::ident()
@@ -34,10 +34,6 @@ pub fn mult_div_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clon
         just('%').padded().to(Operation::Rem),
     ))
 }
-
-// pub fn array_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
-// 	just('[').padded().ignore_then(atomic_exp_parser().repeat().padded().collect()).then_ignore(just(']'))
-// }
 
 pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
     choice((add_sub_parser(), mult_div_parser()))
@@ -102,14 +98,6 @@ where
             }),
     ))
 }
-
-// pub fn array_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
-// 	just('[')
-// 		.padded()
-// 		.ignore_then(exp_parser().separated_by(just(',')).collect::<Vec<Expr>>())
-// 		.then_ignore(just(']'))
-// 		// .map(|v| {})
-// }
 
 pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
     fn make_arith(lhs: Expr, op: Operation, rhs: Expr) -> Expr {

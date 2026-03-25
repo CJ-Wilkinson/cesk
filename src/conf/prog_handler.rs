@@ -11,7 +11,7 @@ use std::rc::Rc;
 type SuccessorMap = HashMap<Rc<Stmt>, Rc<Stmt>>;
 
 pub struct ProgramHandler {
-    pub addr: Address,
+    pub counter: usize,
     pub successor_map: SuccessorMap,
     pub program: Program,
 }
@@ -19,7 +19,7 @@ pub struct ProgramHandler {
 impl From<(SuccessorMap, Program)> for ProgramHandler {
     fn from(item: (SuccessorMap, Program)) -> Self {
         Self {
-            addr: Address::new(),
+            counter: 0,
             successor_map: item.0,
             program: item.1,
         }
@@ -29,7 +29,7 @@ impl From<(SuccessorMap, Program)> for ProgramHandler {
 impl From<Program> for ProgramHandler {
     fn from(prog: Program) -> Self {
         Self {
-            addr: Address::new(),
+            counter: 0,
             successor_map: {
                 let mut sv = SuccessorVisitor::new();
                 prog.traverse(&mut sv);
@@ -47,7 +47,7 @@ impl ProgramHandler {
         Creates a completely empty ProgramHandler
         */
         Self {
-            addr: Address::new(),
+            counter: 0,
             successor_map: SuccessorMap::new(),
             program: Program::new(),
         }
@@ -56,7 +56,9 @@ impl ProgramHandler {
         /*
         Wrapper around the get_address function
         */
-        self.addr.get_address()
+        let addr = Address::new(self.counter);
+        self.counter += 1;
+        addr
     }
     pub fn successor_lookup(&self, key: Rc<Stmt>) -> Rc<Stmt> {
         /*

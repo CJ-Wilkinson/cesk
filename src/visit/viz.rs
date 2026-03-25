@@ -95,6 +95,7 @@ impl Visitor for GraphVizVisitor {
             Value::BoolV(b) => format!("Value::BoolV({b})"),
             Value::UnitV => "Value::UnitV".to_string(),
             Value::ArrayV(size, _) => format!("Array(size: {})", size),
+            Value::AddrV(a) => format!("Addr({})", a),
         };
         self.enter_node(label);
     }

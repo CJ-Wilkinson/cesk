@@ -22,6 +22,7 @@ pub enum Value {
         usize,   // Size of array
         Address, // First address of array
     ),
+    AddrV(Address),
 }
 // thing = [1, 2, 3]
 /*

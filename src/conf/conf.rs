@@ -24,8 +24,8 @@ impl Address {
         self.a += 1;
         Address { a: addr }
     }
-    pub fn new() -> Self {
-        Self { a: 0 }
+    pub fn new(addr: usize) -> Self {
+        Self { a: addr }
     }
 }
 
@@ -60,7 +60,7 @@ impl Env {
     fn insert(&mut self, name: Name, addr: Address) {
         self.0.insert(name, addr);
     }
-    fn get(&mut self, name: &Name) -> Option<&Address> {
+    fn get(&self, name: &Name) -> Option<&Address> {
         self.0.get(name)
     }
 }
@@ -98,7 +98,7 @@ impl Store {
     fn insert(&mut self, addr: Address, val: Rc<Value>) {
         self.0.insert(addr, val);
     }
-    fn get(&mut self, addr: &Address) -> Option<Rc<Value>> {
+    fn get(&self, addr: &Address) -> Option<Rc<Value>> {
         match self.0.get(addr) {
             Some(val) => Some(val.clone()),
             None => None,
@@ -256,32 +256,49 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    Assign(id, expr) => Self {
-                        c: AstExpr(expr.clone()),
-                        e: self.e.clone(),
-                        s: self.s.clone(),
-                        k: Rc::new(AssignK(
-                            id.clone(),
-                            handler.successor_lookup(s.clone()),
-                            self.k.clone(),
-                        )),
+                    // Assign(id, expr) => Self {
+                    //     c: AstExpr(expr.clone()),
+                    //     e: self.e.clone(),
+                    //     s: self.s.clone(),
+                    //     k: Rc::new(AssignK(
+                    //         id.clone(),
+                    //         handler.successor_lookup(s.clone()),
+                    //         self.k.clone(),
+                    //     )),
+                    // },
+                    //                     Assign(id_expr, expr) => Self {
+                    //                         c: match &**id_expr {
+                    //                             Var(name) => match &self.e.get(name) {
+                    //                                 Some(addr) => AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
+                    //                                 None => panic!(),
+                    //                             },
+                    //                             _ => panic!(),
+                    //                         },
+                    //
+                    //                         e: self.e.clone(),
+                    //                         s: self.s.clone(),
+                    //                         k: Rc::new(AssignK(
+                    //                             expr.clone(),
+                    //                             handler.successor_lookup(s.clone()),
+                    //                             self.k.clone(),
+                    //                         )),
+                    //                     },
+                    Assign(id_expr, expr) => match id_expr.as_ref() {
+                        Expr::Var(name) => match self.e.get(name) {
+                            Some(addr) => Self {
+                                c: AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
+                                e: self.e.clone(),
+                                s: self.s.clone(),
+                                k: Rc::new(AssignK(
+                                    expr.clone(),
+                                    handler.successor_lookup(s.clone()),
+                                    self.k.clone(),
+                                )),
+                            },
+                            None => panic!(),
+                        },
+                        _ => panic!(),
                     },
-                    //              Return(expr) => {
-                    //              	let mut k = Rc::clone(&self.k);
-                    //              	while let BlockK(_, _, inner_k) = k.as_ref() {
-                    //              		k = Rc::clone(inner_k);
-                    //              	}
-                    //              	if let ReturnK(_, _, _) = k.as_ref() {
-                    // Self {
-                    // 	c: AstExpr(Rc::clone(expr)),
-                    // 	e: Rc::clone(&self.e),
-                    // 	s: Rc::clone(&self.s),
-                    // 	k: Rc::clone(&k),
-                    // }
-                    //              	} else {
-                    //              		panic!()
-                    //              	}
-                    //              }
                     Return(expr) => match self.k.as_ref() {
                         BlocK(_, _, k) => Self {
                             c: AstExpr(expr.clone()),
@@ -328,11 +345,22 @@ impl Config {
                     // Get the first address
                     let addr = handler.get_address();
                     // Build the array handler value
-                    let array_ref = Value::ArrayV(exprs.len(), addr);
+                    let array_ref = Value::ArrayV(exprs.len(), addr.clone());
                     // Get new store
                     let mut new_store = (*self.s).clone();
+
+                    // Bind the first item in array to addrss
+                    match exprs.first() {
+                        Some(expr) => {
+                            if let Val(v) = expr {
+                                new_store.insert(addr, v.clone())
+                            }
+                        }
+                        None => (),
+                    }
+
                     // new_store.0.insert(addr.clone(), v1.clone());
-                    for expr in exprs.iter() {
+                    for expr in exprs.iter().skip(1) {
                         if let Val(v) = expr {
                             new_store.0.insert(handler.get_address(), v.clone());
                         }
@@ -346,7 +374,27 @@ impl Config {
                         k: self.k.clone(),
                     }
                 }
-                Val(v) => self.invoke_kont(v, handler),
+                Val(v) => match v.as_ref() {
+                    AddrV(a) => Self {
+                        c: match self.s.get(a) {
+                            Some(v) => AstExpr(Rc::new(Val(v.clone()))),
+                            None => panic!(),
+                        },
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: self.k.clone(),
+                    },
+                    _ => self.invoke_kont(v, handler),
+                },
+                Var(name) => match self.e.get(name) {
+                    Some(addr) => Self {
+                        c: AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: self.k.clone(),
+                    },
+                    None => panic!(),
+                },
                 Call(_, _) => todo!(),
                 _ => todo!(),
             },
