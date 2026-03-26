@@ -4,14 +4,29 @@ use std::rc::Rc;
 use crate::ast::*;
 // use chumsky::error::EmptyErr;
 use chumsky::pratt::{infix, left, none, prefix};
-use chumsky::prelude::{IterParser, Parser, choice, just, recursive, text};
+use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
 
 pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
-    choice((
+    (choice((
         text::ascii::keyword("int").padded().to(Type::IntT),
         text::ascii::keyword("bool").padded().to(Type::BoolT),
         text::ascii::keyword("unit").padded().to(Type::UnitT),
     ))
+    .then(
+        just('[')
+            .padded()
+            .then_ignore(just(']').padded())
+            .repeated()
+            .count(),
+    ))
+    .map(|(base, mut array_depth)| {
+        let mut result: Type = base;
+        while array_depth > 0 {
+            result = Type::ArrayT(Rc::new(result));
+            array_depth -= 1;
+        }
+        result
+    })
 }
 
 pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
@@ -291,6 +306,18 @@ mod tests {
     #[test]
     fn bogus_fun_call() {
         assert!(exp_test("f(;)").is_err())
+    }
+
+    #[test]
+    fn array_type() {
+        assert_eq!(
+            stmt_test("int[] x;"),
+            Ok(Stmt::DeclD(
+                Type::ArrayT(Rc::new(Type::IntT)),
+                Name("x".to_string()),
+                None
+            ))
+        )
     }
 
     #[test]
