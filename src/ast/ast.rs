@@ -113,6 +113,8 @@ pub enum Type {
     Type ::= '?'
     */
     ArrayT(Rc<Type>),
+
+    Unknown,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -154,7 +156,7 @@ pub enum Stmt {
     be needed since type checking should have occured.
 
     */
-    Decl(Name),
+    Decl(Type, Name),
     /*
     The <Return> will always return some <Expr>. This can be some value or Unit.
     */

@@ -31,7 +31,7 @@ impl Address {
 
 impl fmt::Display for Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.a)
+        write!(f, "[a{}]", self.a)
     }
 }
 
@@ -76,15 +76,15 @@ impl fmt::Display for Env {
         //     }
         // }
         // write!(f, "]")
-        write!(
-            f,
-            "[{}]",
-            self.0
-                .iter()
-                .map(|(key, value)| format!("{} -> {}", key, value))
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
+        let mut bindings = self.0
+            .iter()
+            .map(|(key, value)| format!("{} -> {}", key, value))
+            .collect::<Vec<String>>();
+        bindings.sort();
+            
+           
+        write!(f, "[{}]", bindings.join(", "))
+
     }
 }
 
@@ -108,15 +108,23 @@ impl Store {
 
 impl fmt::Display for Store {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "[{}]",
-            self.0
-                .iter()
-                .map(|(key, value)| format!("{} -> {}", key, value))
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
+        // write!(
+        //     f,
+        //     "[{}]",
+        //     self.0
+        //         .iter()
+        //         .map(|(key, value)| format!("{} -> {}", key, value))
+        //         .collect::<Vec<_>>()
+        //         .join(", "),
+        // )
+        let mut bindings = self.0
+            .iter()
+            .map(|(key, value)| format!("{} -> {}", key, value))
+            .collect::<Vec<String>>();
+        bindings.sort();
+            
+           
+        write!(f, "[{}]", bindings.join(", "))
         //     write!(f, "[")?;
         //     fo
         //     //let mut index = 0;

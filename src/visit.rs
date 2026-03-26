@@ -1,4 +1,5 @@
 mod successor_visitor;
+mod type_visit;
 mod visit;
 mod viz;
 
