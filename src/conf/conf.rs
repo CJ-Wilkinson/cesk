@@ -85,7 +85,7 @@ fn function_lookup(_fn_name: Name) -> (Rc<Stmt>, Rc<Vec<Expr>>) {
 #[derive(Debug, PartialEq)]
 enum Kont {
     Mt,
-    ExprStmtK(Rc<Kont>),
+    ExprStmtK(Rc<Stmt>, Rc<Kont>),
     OpK(Operation, Rc<Expr>, Rc<Kont>),
     IfK(Rc<Stmt>, Option<Rc<Stmt>>, Rc<Stmt>, Rc<Kont>), // Missing successor!
     DeclK(Name, Rc<Stmt>, Rc<Kont>),
@@ -94,6 +94,7 @@ enum Kont {
     FunK(Rc<Env>, Rc<Kont>),
     BlocK(Rc<Env>, Rc<Stmt>, Rc<Kont>),
     AssignK(Rc<Expr>, Rc<Stmt>, Rc<Kont>),
+    WhileK(Rc<Env>, Rc<Expr>, Rc<Stmt>, Rc<Stmt>, Rc<Kont>),
 }
 
 #[derive(Debug)]
@@ -140,17 +141,17 @@ impl Config {
     fn no_change_map(&self, c: Control, k: Kont) -> Config {
         Self {
             c,
-            e: Rc::clone(&self.e),
-            s: Rc::clone(&self.s),
+            e: self.e.clone(),
+            s: self.s.clone(),
             k: Rc::new(k),
         }
     }
     fn new_c(&self, c: Control) -> Config {
         Self {
             c,
-            e: Rc::clone(&self.e),
-            s: Rc::clone(&self.s),
-            k: Rc::clone(&self.k),
+            e: self.e.clone(),
+            s: self.s.clone(),
+            k: self.k.clone(),
         }
     }
     fn next(&self) -> Self {
@@ -161,50 +162,61 @@ impl Config {
                 match s.as_ref() {
                     // Expression Statement
                     ExprStmt(expr) => Self {
-                        c: AstExpr(Rc::clone(expr)),
-                        e: Rc::clone(&self.e),
-                        s: Rc::clone(&self.s),
-                        k: Rc::new(ExprStmtK(Rc::clone(&self.k))),
+                        c: AstExpr(expr.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(ExprStmtK(
+                            successor_lookup(),
+                            self.k.clone()
+                        )),
                     },
                     // If statement
                     If(expr, true_b, false_b) => Self {
-                        c: AstExpr(Rc::clone(expr)),
-                        e: Rc::clone(&self.e),
-                        s: Rc::clone(&self.s),
+                        c: AstExpr(expr.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
                         k: Rc::new(IfK(
-                            Rc::clone(true_b),
+                            true_b.clone(),
                             match false_b {
-                                Some(false_b) => Some(Rc::clone(false_b)),
+                                Some(false_b) => Some(false_b.clone()),
                                 None => None,
                             },
                             successor_lookup(), // TODO: Successor function
-                            Rc::clone(&self.k),
+                            self.k.clone(),
                         )),
                     },
                     DeclD(_, id, expr) => Self {
                         c: match expr {
-                            Some(expr) => AstExpr(Rc::clone(expr)),
+                            Some(expr) => AstExpr(expr.clone()),
                             None => AstExpr(Rc::new(Val(Rc::new(UnitV)))),
                         },
-                        e: Rc::clone(&self.e),
-                        s: Rc::clone(&self.s),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
                         k: Rc::new(DeclK(
                             id.clone(),         // TODO should be copy?
                             successor_lookup(), // TODO: Successor function
-                            Rc::clone(&self.k),
+                            self.k.clone(),
                         )),
                     },
                     Decl(id) => Self {
                         c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
                         e: self.e.clone(),
                         s: self.s.clone(),
-                        k: Rc::new(DeclK(id.clone(), successor_lookup(), self.k.clone())),
+                        k: Rc::new(DeclK(
+                            id.clone(), 
+                            successor_lookup(), 
+                            self.k.clone(),
+                        )),
                     },
                     Assign(id, expr) => Self {
                         c: AstExpr(expr.clone()),
                         e: self.e.clone(),
                         s: self.s.clone(),
-                        k: Rc::new(AssignK(id.clone(), successor_lookup(), self.k.clone())),
+                        k: Rc::new(AssignK(
+                            id.clone(), 
+                            successor_lookup(), 
+                            self.k.clone(),
+                        )),
                     },
                     //              Return(expr) => {
                     //              	let mut k = Rc::clone(&self.k);
@@ -235,17 +247,69 @@ impl Config {
                             s: self.s.clone(),
                             k: self.k.clone(),
                         },
+                        FunK(env,k ) => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(ReturnK(
+                                env.clone(),
+                                k.clone()
+                            )),
+                        },
                         _ => panic!("Found some other Kont"),
                     },
                     Block(stmts) => Self {
-                        c: AstStmt(stmts.get(0).unwrap().clone()),
+                        c: AstStmt(stmts.get(0).unwrap().clone()), // TODO unwrap
                         e: self.e.clone(),
                         s: self.s.clone(),
-                        k: Rc::new(BlocK(self.e.clone(), successor_lookup(), self.k.clone())),
+                        k: Rc::new(BlocK(
+                            self.e.clone(), 
+                            successor_lookup(), 
+                            self.k.clone(),
+                        )),
                     },
-                    Break => todo!(),
-                    Goto(_) => todo!(),
-                    Continue => todo!(),
+                    Break => match self.k.as_ref(){
+                        WhileK(env,_cond ,_body ,succ ,k ) => Self {
+                            c: AstStmt(succ.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        BlocK(env, succ, k ) => Self {
+                            c: AstStmt(s.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: k.clone()
+                        },
+                        _ => panic!("Found some other Kont"),
+                    }, 
+                    While(cond,body) => Self {
+                        c: AstExpr(cond.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(WhileK(
+                            self.e.clone(),
+                            cond.clone(),
+                            body.clone(),
+                            successor_lookup(),
+                            self.k.clone(),
+                        )),
+                    },
+                    Continue => match self.k.as_ref() {
+                        WhileK(env,cond,_,_,k) => Self {
+                            c: AstExpr(cond.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        },
+                        BlocK(env,_,k) => Self {
+                            c: AstStmt(s.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        _ => panic!("Found some other Kont"),
+                    }
                     _ => todo!(),
                 }
             }
@@ -255,8 +319,8 @@ impl Config {
                         self.new_c(AstExpr(Rc::new(Val(Rc::new(op.call(l, r))))))
                     } else {
                         self.no_change_map(
-                            AstExpr(Rc::clone(l)),
-                            OpK(*op, Rc::clone(r), Rc::clone(&self.k)),
+                            AstExpr(l.clone()),
+                            OpK(*op, r.clone(), self.k.clone()),
                         )
                     }
                 }
@@ -273,43 +337,43 @@ impl Config {
                 match expr.as_ref() {
                     Val(v2) => Self {
                         c: AstExpr(Rc::new(Val(Rc::new(op.call(v1, v2))))),
-                        e: Rc::clone(&self.e),
-                        s: Rc::clone(&self.s),
-                        k: Rc::clone(k),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: self.k.clone(),
                     },
                     _ => Self {
-                        c: AstExpr(Rc::clone(expr)),
-                        e: Rc::clone(&self.e),
-                        s: Rc::clone(&self.s),
+                        c: AstExpr(expr.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
                         k: Rc::new(OpK(
                             *op,
                             match &self.c {
-                                AstExpr(expr) => Rc::clone(expr),
+                                AstExpr(expr) => expr.clone(),
                                 _ => panic!(), // Unreachable?
                             },
-                            Rc::clone(k),
+                            k.clone(),
                         )),
                     },
                 }
             }
             IfK(true_b, false_b, succ, k) => Self {
-                c: AstStmt(Rc::clone(match v1.as_ref() {
+                c: AstStmt((match v1.as_ref() {
                     BoolV(true) => true_b,
                     BoolV(false) => match false_b {
                         Some(false_b) => false_b,
                         None => succ,
                     },
                     _ => panic!(),
-                })),
-                e: Rc::clone(&self.e),
-                s: Rc::clone(&self.s),
-                k: Rc::clone(k),
+                }).clone()),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
             },
             DeclK(id, succ, k) => {
                 // Get new address
                 let addr = Address { a: 0 }; // TODO  actual address look up
                 Self {
-                    c: AstStmt(Rc::clone(succ)),
+                    c: AstStmt(succ.clone()),
                     e: {
                         let mut new_env = (*self.e).clone();
                         new_env.0.insert(id.clone(), addr.clone());
@@ -317,10 +381,10 @@ impl Config {
                     },
                     s: {
                         let mut new_store = (*self.s).clone();
-                        new_store.0.insert(addr.clone(), Rc::clone(v1));
+                        new_store.0.insert(addr.clone(), v1.clone());
                         Rc::new(new_store)
                     },
-                    k: Rc::clone(k),
+                    k: k.clone(),
                 }
             }
             ReturnK(env, k) => Self {
@@ -357,6 +421,10 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
+            CallK(_, _, _, _) => todo!(),
+            FunK(_, _) => todo!(),
+            ExprStmtK(_, _) => todo!(),
+            WhileK(_, _, _, _, _) => todo!(),
             _ => todo!(),
         }
     }
@@ -370,7 +438,7 @@ mod tests {
             AstExpr(e) => match e.as_ref() {
                 Val(v) => {
                     if *conf.k == Mt {
-                        Some(Rc::clone(v))
+                        Some(v.clone())
                     } else {
                         None
                     }

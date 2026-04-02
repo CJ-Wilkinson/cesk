@@ -176,6 +176,7 @@ impl Traverse for Stmt {
             Goto(stmt) => stmt.traverse(v),
             Continue => {}
             Break => {}
+            _ => todo!()
         }
         v.postvisit_stmt(self);
     }
