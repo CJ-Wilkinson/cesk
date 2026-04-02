@@ -168,6 +168,8 @@ pub enum Stmt {
     This <Goto> will hold its jump location <Stmt>.
     */
     Goto(Rc<Stmt>),
+
+    While(Rc<Expr>,Rc<Stmt>),
     Continue,
     Break,
 }
