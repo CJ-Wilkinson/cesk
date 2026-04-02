@@ -1,6 +1,4 @@
 use crate::ast::*;
-use std::collections::HashMap;
-use std::rc::Rc;
 
 pub trait Traverse {
     fn traverse<V: Visitor>(&self, v: &mut V);
@@ -101,9 +99,8 @@ impl Traverse for Expr {
             Index(name, expr) => {
                 name.traverse(v);
                 expr.traverse(v);
-            }
-            Deref(expr) => expr.traverse(v),
-            Ref(name) => name.traverse(v),
+            } // Deref(expr) => expr.traverse(v),
+              // Ref(name) => name.traverse(v),
         }
         v.postvisit_expr(self);
     }

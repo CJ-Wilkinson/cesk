@@ -7,6 +7,8 @@ impl Display for Value {
             Self::IntV(x) => write!(f, "{}", x),
             Self::BoolV(b) => write!(f, "{}", b),
             Self::UnitV => write!(f, "()"),
+            Self::ArrayV(size, _) => write!(f, "Array(size: {})", size),
+            Self::AddrV(addr) => write!(f, "Addr({})", addr),
             // Self::ArrayV(vec) => {
             //     let mut s = String::new();
             //     for elem in vec {
@@ -52,8 +54,8 @@ impl Display for Expr {
             Self::Call(n, args) => write!(f, "{} ({:?})", n, args),
             Self::Array(elems) => write!(f, "[{:?}]", elems),
             Self::Index(n, ex) => write!(f, "{}[{}]", n, ex),
-            Self::Deref(ex) => write!(f, "*{}", ex),
-            Self::Ref(n) => write!(f, "&{}", n),
+            // Self::Deref(ex) => write!(f, "*{}", ex),
+            // Self::Ref(n) => write!(f, "&{}", n),
         }
     }
 }

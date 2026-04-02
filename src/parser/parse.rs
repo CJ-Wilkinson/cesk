@@ -218,7 +218,7 @@ where
             typ,
             name,
             params: ParamList(args),
-            body,
+            body: Rc::new(body),
         })
 }
 

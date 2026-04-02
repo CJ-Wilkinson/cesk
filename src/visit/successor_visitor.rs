@@ -1,11 +1,29 @@
 use super::visit::Visitor;
 use crate::ast::*;
+use crate::visit::visit::Traverse;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug, Default)]
 pub struct SuccessorVisitor {
     pub map: HashMap<Rc<Stmt>, Rc<Stmt>>,
+}
+
+impl SuccessorVisitor {
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+    pub fn create(start: &mut Stmt) -> HashMap<Rc<Stmt>, Rc<Stmt>> {
+        let mut sv = SuccessorVisitor::new();
+        start.traverse(&mut sv);
+        if let SuccessorVisitor { map } = sv {
+            map
+        } else {
+            panic!()
+        }
+    }
 }
 
 impl Visitor for SuccessorVisitor {
@@ -42,9 +60,9 @@ mod tests {
             Ok(ast) => {
                 ast.traverse(&mut sv);
                 assert_eq!(sv.map.len(), 3);
-                // for (key, value) in sv.map {
-                // 	println!("{}\t->\t{}", key, value);
-                // }
+                for (key, value) in sv.map {
+                    println!("{}\t->\t{}", key, value);
+                }
             }
             Err(e) => assert!(false),
         }
