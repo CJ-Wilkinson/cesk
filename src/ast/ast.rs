@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::iter::Iterator;
 use std::rc::Rc;
 
-use crate::conf::Address;
+use crate::conf::parts::address::Address;
 
 /*
 Name ::= [a-zA-z][a-zA-Z0-9_]*

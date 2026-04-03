@@ -130,7 +130,7 @@ impl Visitor for GraphVizVisitor {
         let label = match node {
             Stmt::DeclD(..) => "Stmt::DeclD",
             Stmt::ForD(..) => "Stmt::ForD",
-            Stmt::WhileD(..) => "Stmt::WhileD",
+            Stmt::WhileD(..) => "Stmt::WhileD", // ! No longer used
             Stmt::If(..) => "Stmt::If",
             Stmt::Assign(..) => "Stmt::Assign",
             Stmt::ExprStmt(..) => "Stmt::ExprStmt",
@@ -140,6 +140,7 @@ impl Visitor for GraphVizVisitor {
             Stmt::Goto(_) => "Stmt::Goto",
             Stmt::Continue => "Stmt::Continue",
             Stmt::Break => "Stmt::Break",
+            Stmt::While(_,_) => "Stmt::While",
         };
         self.enter_node(label);
     }

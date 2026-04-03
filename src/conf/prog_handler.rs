@@ -1,4 +1,4 @@
-use super::conf::Address;
+use super::parts::address::Address;
 use crate::ast::*;
 use crate::visit::SuccessorVisitor;
 

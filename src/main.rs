@@ -21,7 +21,8 @@ use chumsky::Parser;
 // use conf::conf::SuccessorHandler;
 //use visit::visit::traverse;
 //use crate::parser::parse::exp_parser;
-use crate::conf::{Config, ProgramHandler};
+use crate::conf::conf::Config;
+use crate::conf::ProgramHandler;
 use crate::parser::parse::program_parser;
 use crate::parser::parse::stmt_parser;
 

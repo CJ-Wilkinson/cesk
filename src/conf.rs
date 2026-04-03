@@ -1,6 +1,5 @@
-mod conf;
+pub mod conf;
 mod prog_handler;
+pub mod parts;
 
-pub use conf::Address;
-pub use conf::Config;
 pub use prog_handler::ProgramHandler;

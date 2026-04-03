@@ -1,8 +1,14 @@
 use crate::ast::*;
 
+use super::parts::control::Control;
 use Control::*;
-use Expr::*;
+use super::parts::environment::Env;
+use super::parts::store::Store;
+use super::parts::kont::Kont;
 use Kont::*;
+use super::parts::address::Address;
+use Expr::*;
+
 use Stmt::*;
 use Value::*;
 
@@ -12,141 +18,6 @@ use std::fmt;
 use std::rc::Rc;
 
 use super::prog_handler::ProgramHandler;
-
-#[derive(Debug, Eq, PartialOrd, Ord, Hash, PartialEq, Clone)]
-pub struct Address {
-    a: usize,
-}
-
-impl Address {
-    pub fn get_address(&mut self) -> Address {
-        let addr = self.a;
-        self.a += 1;
-        Address { a: addr }
-    }
-    pub fn new(addr: usize) -> Self {
-        Self { a: addr }
-    }
-}
-
-impl fmt::Display for Address {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.a)
-    }
-}
-
-#[derive(Debug)]
-enum Control {
-    AstExpr(Rc<Expr>),
-    AstStmt(Rc<Stmt>),
-}
-
-impl fmt::Display for Control {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            AstExpr(expr) => write!(f, "{}", expr),
-            AstStmt(stmt) => write!(f, "{}", stmt),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Env(pub HashMap<Name, Address>);
-
-impl Env {
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
-    fn insert(&mut self, name: Name, addr: Address) {
-        self.0.insert(name, addr);
-    }
-    fn get(&self, name: &Name) -> Option<&Address> {
-        self.0.get(name)
-    }
-}
-
-impl fmt::Display for Env {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // write!(f, "[")?;
-        // for (index, (key, value)) in self.0.iter().enumerate() {
-        //     if index == self.0.len() {
-        //         write!(f, "{:?} -> {:?}", key, value)?;
-        //     } else {
-        //         write!(f, "{:?} -> {:?}, ", key, value)?;
-        //     }
-        // }
-        // write!(f, "]")
-        write!(
-            f,
-            "[{}]",
-            self.0
-                .iter()
-                .map(|(key, value)| format!("{} -> {}", key, value))
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct Store(HashMap<Address, Rc<Value>>);
-
-impl Store {
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
-    fn insert(&mut self, addr: Address, val: Rc<Value>) {
-        self.0.insert(addr, val);
-    }
-    fn get(&self, addr: &Address) -> Option<Rc<Value>> {
-        match self.0.get(addr) {
-            Some(val) => Some(val.clone()),
-            None => None,
-        }
-    }
-}
-
-impl fmt::Display for Store {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "[{}]",
-            self.0
-                .iter()
-                .map(|(key, value)| format!("{} -> {}", key, value))
-                .collect::<Vec<_>>()
-                .join(", "),
-        )
-        //     write!(f, "[")?;
-        //     fo
-        //     //let mut index = 0;
-        //     for (index, (key, value)) in self.0.iter().enumerate() {
-        //         if index == self.0.len() {
-        //             write!(f, "{:?} -> {:?}", key, value)?;
-        //         } else {
-        //             write!(f, "{:?} -> {:?}, ", key, value)?;
-        //         }
-        //         //index += 1;
-        //     }
-        //     write!(f, "]")
-        // }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum Kont {
-    Mt,
-    ExprStmtK(Rc<Stmt>, Rc<Kont>),
-    OpK(Operation, Rc<Expr>, Rc<Kont>),
-    IfK(Rc<Stmt>, Option<Rc<Stmt>>, Rc<Stmt>, Rc<Kont>), // Missing successor!
-    DeclK(Name, Rc<Stmt>, Rc<Kont>),
-    ReturnK(Rc<Env>, Rc<Kont>),
-    CallK(Rc<Env>, Rc<ParamList>, Rc<Arguments>, Rc<Kont>),
-    FunK(Rc<Env>, Rc<Kont>),
-    BlocK(Rc<Env>, Rc<Stmt>, Rc<Kont>),
-    AssignK(Rc<Expr>, Rc<Stmt>, Rc<Kont>),
-    WhileK(Rc<Env>, Rc<Expr>, Rc<Stmt>, Rc<Stmt>, Rc<Kont>),
-}
 
 #[derive(Debug)]
 pub struct Config {
@@ -162,7 +33,7 @@ impl fmt::Display for Config {
     }
 }
 
-impl From<&Rc<Stmt>> for Config {
+impl From<&Rc<Stmt>> for Config { // * Config helper
     fn from(s: &Rc<Stmt>) -> Self {
         Self {
             c: AstStmt(s.clone()),
@@ -173,7 +44,7 @@ impl From<&Rc<Stmt>> for Config {
     }
 }
 
-impl From<Expr> for Config {
+impl From<Expr> for Config { // * Config helper
     fn from(e: Expr) -> Self {
         Self {
             c: AstExpr(Rc::new(e)),
@@ -185,22 +56,6 @@ impl From<Expr> for Config {
 }
 
 impl Config {
-    fn no_change_map(&self, c: Control, k: Kont) -> Config {
-        Self {
-            c,
-            e: self.e.clone(),
-            s: self.s.clone(),
-            k: Rc::new(k),
-        }
-    }
-    fn new_c(&self, c: Control) -> Config {
-        Self {
-            c,
-            e: self.e.clone(),
-            s: self.s.clone(),
-            k: self.k.clone(),
-        }
-    }
     pub fn next(&self, handler: &mut ProgramHandler) -> Self {
         // Match control
         match &self.c {
@@ -213,7 +68,7 @@ impl Config {
                         e: self.e.clone(),
                         s: self.s.clone(),
                         k: Rc::new(ExprStmtK(
-                            successor_lookup(),
+                            handler.successor_lookup(s.clone()),
                             self.k.clone()
                         )),
                     },
@@ -228,12 +83,11 @@ impl Config {
                                 Some(false_b) => Some(false_b.clone()),
                                 None => None,
                             },
-
-                            handler.successor_lookup(s.clone()), // TODO: Successor function
+                            handler.successor_lookup(s.clone()),
                             self.k.clone(),
                         )),
                     },
-                    DeclD(_, id, expr) => Self {
+                    DeclD(_, id, expr) => Self { // ! Get rid of
                         c: match expr {
                             Some(expr) => AstExpr(expr.clone()),
                             None => AstExpr(Rc::new(Val(Rc::new(UnitV)))),
@@ -246,7 +100,7 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    Decl(id) => Self {
+                    Decl(id) => Self { // ? lval not id
                         /* Introduce variable into environment */
                         c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
                         e: {
@@ -256,32 +110,24 @@ impl Config {
                         },
                         s: self.s.clone(),
                         k: Rc::new(DeclK(
-
                             id.clone(),
                             handler.successor_lookup(s.clone()),
                             self.k.clone(),
                         )),
                     },
-                    Assign(id_expr, expr) => match id_expr.as_ref() {
-                        Expr::Var(name) => match self.e.get(name) {
-                            Some(addr) => Self {
-                                c: AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
-                                e: self.e.clone(),
-                                s: self.s.clone(),
-                                k: Rc::new(AssignK(
-                                    expr.clone(),
-                                    handler.successor_lookup(s.clone()),
-                                    self.k.clone(),
-                                )),
-                            },
-                            None => panic!(),
-                        },
-                        _ => panic!(),
-
+                    Assign(lval, rval) => Self {
+                        c: AstExpr(rval.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(AssignK(
+                            lval.clone(),
+                            handler.successor_lookup(s.clone()),
+                            self.k.clone(),
+                        )),
                     },
                     Return(expr) => match self.k.as_ref() {
                         BlocK(_, _, k) => Self {
-                            c: AstExpr(expr.clone()),
+                            c: AstExpr(expr.clone()), // ! Don't put expression in yet
                             e: self.e.clone(),
                             s: self.s.clone(),
                             k: k.clone(),
@@ -336,7 +182,7 @@ impl Config {
                             self.e.clone(),
                             cond.clone(),
                             body.clone(),
-                            successor_lookup(),
+                            handler.successor_lookup(s.clone()),
                             self.k.clone(),
                         )),
                     },
@@ -354,19 +200,30 @@ impl Config {
                             k: k.clone(),
                         },
                         _ => panic!("Found some other Kont"),
-                    }
+                    },
                     _ => todo!(),
                 }
             }
             AstExpr(e) => match e.as_ref() {
                 BinaryOp(l, op, r) => {
                     if let (Val(l), Val(r)) = (l.as_ref(), r.as_ref()) {
-                        self.new_c(AstExpr(Rc::new(Val(Rc::new(op.call(l, r))))))
+                        Self {
+                            c: AstExpr(Rc::new(Val(Rc::new(op.call(l, r))))),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone()
+                        }
                     } else {
-                        self.no_change_map(
-                            AstExpr(l.clone()),
-                            OpK(*op, r.clone(), self.k.clone()),
-                        )
+                        Self {
+                            c: AstExpr(l.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(OpK(
+                                *op,
+                                r.clone(),
+                                self.k.clone()
+                            )),
+                        }
                     }
                 }
                 Array(exprs) => {
@@ -390,7 +247,7 @@ impl Config {
                     // new_store.0.insert(addr.clone(), v1.clone());
                     for expr in exprs.iter().skip(1) {
                         if let Val(v) = expr {
-                            new_store.0.insert(handler.get_address(), v.clone());
+                            new_store.insert(handler.get_address(), v.clone());
                         }
                     }
                     // Make new environment
@@ -402,18 +259,6 @@ impl Config {
                         k: self.k.clone(),
                     }
                 }
-                Val(v) => match v.as_ref() {
-                    AddrV(a) => Self {
-                        c: match self.s.get(a) {
-                            Some(v) => AstExpr(Rc::new(Val(v.clone()))),
-                            None => panic!(),
-                        },
-                        e: self.e.clone(),
-                        s: self.s.clone(),
-                        k: self.k.clone(),
-                    },
-                    _ => self.invoke_kont(v, handler),
-                },
                 Var(name) => match self.e.get(name) {
                     Some(addr) => Self {
                         c: AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
@@ -426,6 +271,7 @@ impl Config {
                 Call(_, _) => todo!(),
                 _ => todo!(),
             },
+            Addr(_) => todo!(),
         }
     }
     fn invoke_kont(&self, v1: &Rc<Value>, handler: &mut ProgramHandler) -> Config {
@@ -445,10 +291,7 @@ impl Config {
                         s: self.s.clone(),
                         k: Rc::new(OpK(
                             *op,
-                            match &self.c {
-                                AstExpr(expr) => expr.clone(),
-                                _ => panic!(), // Unreachable?
-                            },
+                            Rc::new(Expr::Val(v1.clone())),
                             k.clone(),
                         )),
                     },
@@ -480,7 +323,7 @@ impl Config {
                     },
                     s: {
                         let mut new_store = (*self.s).clone();
-                        new_store.0.insert(addr.clone(), v1.clone());
+                        new_store.insert(addr.clone(), v1.clone());
                         Rc::new(new_store)
                     },
                     k: k.clone(),
@@ -492,7 +335,7 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            AssignK(id, succ, k) => {
+            AssignK(id, succ, k) => { // TODO Redo this 
                 let addr: &Address = match id.as_ref() {
                     Var(n) => {
                         if let Some(addr) = self.e.0.get(n) {
@@ -508,7 +351,7 @@ impl Config {
                     e: self.e.clone(),
                     s: {
                         let mut new_store = (*self.s).clone();
-                        new_store.0.insert(addr.clone(), v1.clone());
+                        new_store.insert(addr.clone(), v1.clone());
                         Rc::new(new_store)
                     },
                     k: k.clone(),
@@ -524,6 +367,7 @@ impl Config {
             FunK(_, _) => todo!(),
             ExprStmtK(_, _) => todo!(),
             WhileK(_, _, _, _, _) => todo!(),
+            IdK(_,_ ,_ ) => todo!(),
             _ => todo!(),
         }
     }
