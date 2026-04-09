@@ -50,9 +50,9 @@ pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> +
     ))
 }
 
-fn atomic_exp_parser<'src, P>(expr: P) -> impl Parser<'src, &'src str, Expr> + Clone
+fn atomic_exp_parser<'src, P>(expr: P) -> impl Parser<'src, &'src str, Rc<Expr>> + Clone
 where
-    P: Parser<'src, &'src str, Expr> + Clone + 'src,
+    P: Parser<'src, &'src str, Rc<Expr>> + Clone + 'src,
 {
     let int = text::int(10)
         .map(|s: &str| Value::IntV(s.parse().unwrap()))
@@ -67,7 +67,7 @@ where
     let value = choice((int, bool_v));
 
     choice((
-        value.map(|e| Expr::Val(Rc::new(e))),
+        value.map(|e| Rc::new(Expr::Val(Rc::new(e)))),
         ident_parser()
             .then(
                 just('(')
@@ -77,8 +77,8 @@ where
                     .or_not(),
             )
             .map(|(n, args)| match args {
-                Some(a) => Expr::Call(n, Arguments(a)),
-                None => Expr::Var(n),
+                Some(a) => Rc::new(Expr::CallName(n, Arguments(a))),
+                None => Rc::new(Expr::Var(n)),
             }),
         just('(')
             .padded()
@@ -93,34 +93,34 @@ where
                     .or_not(),
             )
             .map(|(e, i)| match i {
-                Some(index) => Expr::Index(e, Rc::new(index)),
-                None => Expr::Var(e),
+                Some(index) => Rc::new(Expr::Index(e, index)),
+                None => Rc::new(Expr::Var(e)),
             }),
     ))
 }
 
-pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> + Clone {
-    fn make_arith(lhs: Expr, op: Operation, rhs: Expr) -> Expr {
-        Expr::BinaryOp(Rc::new(lhs), op, Rc::new(rhs))
+pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Rc<Expr>> + Clone {
+    fn make_arith(lhs: Rc<Expr>, op: Operation, rhs: Rc<Expr>) -> Rc<Expr> {
+        Rc::new(Expr::BinaryOp(lhs.clone(), op, rhs.clone()))
     }
 
-    recursive(|expr| {
+    recursive(|expr: chumsky::prelude::Recursive<dyn Parser<'_, &str, Rc<Expr>>>| {
         let atom = atomic_exp_parser(expr.clone());
 
         choice((
             atom.pratt((
-                infix(none(1), compare_binop_parser(), |l, op, r, _| {
-                    Expr::BinaryOp(Rc::new(l), op, Rc::new(r))
+                infix(none(1), compare_binop_parser(), |l: Rc<Expr>, op: Operation, r: Rc<Expr>, _| {
+                    Rc::new(Expr::BinaryOp(l, op, r))
                 }),
-                infix(left(2), add_sub_parser(), |l, o, r, _| make_arith(l, o, r)),
-                infix(left(3), mult_div_parser(), |l, o, r, _| make_arith(l, o, r)),
-                prefix(4, just('-').padded(), |_, e, _| Expr::Neg(Rc::new(e))),
+                infix(left(2), add_sub_parser(), |l: Rc<Expr>, o: Operation, r: Rc<Expr>, _| make_arith(l, o, r)),
+                infix(left(3), mult_div_parser(), |l: Rc<Expr>, o: Operation, r: Rc<Expr>, _| make_arith(l, o, r)),
+                prefix(4, just('-').padded(), |_, e: Rc<Expr>, _| Rc::new(Expr::Neg(e))),
             )),
             just('[')
                 .padded()
                 .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
                 .then_ignore(just(']'))
-                .map(Expr::Array),
+                .map(|v| Rc::new(Expr::Array(v))),
         ))
     })
 }
@@ -155,10 +155,10 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .then_ignore(just('=').padded())
                 .then(exp_parser())
                 .then_ignore(just(';').padded())
-                .map(|(lhs, rhs)| Stmt::Assign(Rc::new(lhs), Rc::new(rhs))),
+                .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
             exp_parser()
                 .then_ignore(just(';').padded())
-                .map(|e| Stmt::ExprStmt(Rc::new(e))),
+                .map(|e| Stmt::ExprStmt(e)),
             block.clone(),
             text::ascii::keyword("if")
                 .padded()
@@ -172,26 +172,26 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                         .ignore_then(block.clone())
                         .or_not(),
                 )
-                .map(|((cond, t), f)| Stmt::If(Rc::new(cond), Rc::new(t), f.map(Rc::new))),
+                .map(|((cond, t), f)| Stmt::If(cond, Rc::new(t), f.map(Rc::new))),
             text::ascii::keyword("while")
                 .padded()
                 .ignore_then(just('(').padded())
                 .ignore_then(exp_parser())
                 .then_ignore(just(')').padded())
                 .then(block.clone())
-                .map(|(cond, t)| Stmt::WhileD(Rc::new(cond), Rc::new(t))),
+                .map(|(cond, t)| Stmt::WhileD(cond, Rc::new(t))),
             text::ascii::keyword("return")
                 .padded()
                 .ignore_then(exp_parser())
                 .then_ignore(just(';').padded())
-                .map(|e| Stmt::Return(Rc::new(e))),
+                .map(|e| Stmt::Return(e)),
             typ_parser()
                 .then(ident_parser())
                 .then(just('=').padded().ignore_then(exp_parser()).or_not())
                 .then_ignore(just(';').padded())
                 .map(|((typ, name), init)| {
                     if let Some(init) = init {
-                        Stmt::DeclD(typ, name, Some(Rc::new(init)))
+                        Stmt::DeclD(typ, name, Some(init))
                     } else {
                         Stmt::DeclD(typ, name, None)
                     }
@@ -217,7 +217,7 @@ where
         .map(|(((typ, name), args), body)| Fun {
             typ,
             name,
-            params: ParamList(args),
+            params: Rc::new(ParamList(args)),
             body: Rc::new(body),
         })
 }
@@ -260,7 +260,7 @@ mod tests {
         stmt_parser().parse(stmt).into_result().map_err(|_| ())
     }
 
-    fn exp_test(exp: &str) -> Result<Expr, ()> {
+    fn exp_test(exp: &str) -> Result<Rc<Expr>, ()> {
         exp_parser().parse(exp).into_result().map_err(|_| ())
     }
 
@@ -278,13 +278,13 @@ mod tests {
     fn function_call_two_arg() {
         assert_eq!(
             exp_test("f(1,3)"),
-            Ok(Expr::Call(
+            Ok(Rc::new(Expr::CallName( 
                 Name("f".to_string()),
                 Arguments(vec![
-                    Expr::Val(Rc::new(Value::IntV(1))),
-                    Expr::Val(Rc::new(Value::IntV(3)))
+                    Rc::new(Expr::Val(Rc::new(Value::IntV(1)))),
+                    Rc::new(Expr::Val(Rc::new(Value::IntV(3))))
                 ])
-            ))
+            )))
         )
     }
 
@@ -303,12 +303,12 @@ mod tests {
 
     #[test]
     fn identifier() {
-        assert_eq!(exp_test("x"), Ok(Expr::Var(Name("x".to_string()))))
+        assert_eq!(exp_test("x"), Ok(Rc::new(Expr::Var(Name("x".to_string())))))
     }
 
     #[test]
     fn number() {
-        assert_eq!(exp_test("3"), Ok(Expr::Val(Rc::new(Value::IntV(3)))))
+        assert_eq!(exp_test("3"), Ok(Rc::new(Expr::Val(Rc::new(Value::IntV(3))))))
     }
 
     #[test]

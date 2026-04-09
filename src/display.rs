@@ -53,10 +53,11 @@ impl Display for Expr {
             Self::Neg(ex) => write!(f, "{}", ex),
             Self::BinaryOp(e1, op, e2) => write!(f, "{} {} {}", e1, op, e2),
             Self::Var(n) => write!(f, "{}", n),
-            Self::Call(n, args) => write!(f, "{} ({:?})", n, args),
+            Self::CallRef(fun, args) => write!(f, "{} ({:?})", fun, args),
+            Self::CallName(n, args ) => write!(f, "{} ({:?})", n, args),
             Self::Array(elems) => write!(f, "[{:?}]", elems),
             Self::Index(n, ex) => write!(f, "{}[{}]", n, ex),
-            // Self::Deref(ex) => write!(f, "*{}", ex),
+            // Self::Deref(ex) => write!(f, "*{}", ex),  // ? Not needed?
             // Self::Ref(n) => write!(f, "&{}", n),
         }
     }
@@ -102,7 +103,6 @@ impl Display for Stmt {
                 write!(f, "}}")
             }
             Self::Break => write!(f, "break;"),
-            Self::Goto(st) => write!(f, "goto: {};", st),
             Self::Continue => write!(f, "continue;"),
             _ => write!(f, ""),
         }

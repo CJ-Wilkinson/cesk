@@ -87,9 +87,16 @@ impl Traverse for Expr {
                 rhs.traverse(v);
             }
             Var(name) => name.traverse(v),
-            Call(name, plist) => {
+            CallName(name, args) => {
                 name.traverse(v);
-                plist.traverse(v);
+                for arg in args.slice_ref(){
+                    arg.traverse(v);
+                }
+            }
+            CallRef(_fun, args) => {
+                for arg in args.slice_ref(){
+                    arg.traverse(v);
+                }
             }
             Array(v_exprs) => {
                 for v_expr in v_exprs {
@@ -170,7 +177,6 @@ impl Traverse for Stmt {
                     stmt.traverse(v);
                 }
             }
-            Goto(stmt) => stmt.traverse(v),
             Continue => {}
             Break => {}
             _ => todo!()

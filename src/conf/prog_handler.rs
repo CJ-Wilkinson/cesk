@@ -66,10 +66,10 @@ impl ProgramHandler {
         */
         match self.successor_map.get(&key) {
             Some(stmt) => stmt.clone(),
-            None => Rc::new(Stmt::Break), // TODO: This will be the case that there is not successor
+            None => Rc::new(Stmt::ExprStmt(Rc::new(Expr::Val(Rc::new(Value::UnitV))))), // TODO: This will be the case that there is not successor
         }
     }
-    pub fn function_lookup(&self, _fun_id: &Name) -> Option<(ParamList, Arguments)> {
+    pub fn function_lookup(&self, fun_name: &Name) -> Option<Rc<Fun>> {
         /*
         Get the function given
         */

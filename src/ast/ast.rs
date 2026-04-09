@@ -88,8 +88,10 @@ pub enum Expr {
     /*
     Expr ::= <Name> <ParamList>
     */
-    Call(Name, Arguments),
-    Array(Vec<Expr>),
+    CallName(Name, Arguments),
+    CallRef(Rc<Fun>, Arguments), // ! Change everything over
+
+    Array(Vec<Rc<Expr>>),
     Index(Name, Rc<Expr>),
     // Deref(Rc<Expr>),
     // Ref(Name),
@@ -130,7 +132,7 @@ pub enum Stmt {
     /*
     While ::= 'while' '(' <Expr> ')' <Stmt>
     */
-    WhileD(Rc<Expr>, Rc<Stmt>),
+    WhileD(Rc<Expr>, Rc<Stmt>), // ! Get rid of this
 
     // Rules used in CESK
     /*
@@ -164,11 +166,6 @@ pub enum Stmt {
     Block ::= '{' <Stmt>* '}'
     */
     Block(Vec<Rc<Stmt>>),
-    /*
-    This <Goto> will hold its jump location <Stmt>.
-    */
-    Goto(Rc<Stmt>),
-
     While(Rc<Expr>,Rc<Stmt>),
     Continue,
     Break,
@@ -192,7 +189,7 @@ impl Iterator for Stmt {
 Arguments ::= '(' <Expr>* ')'
 */
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Arguments(pub Vec<Expr>);
+pub struct Arguments(pub Vec<Rc<Expr>>);
 
 /*
 ParamList ::= '(' (<Type> <Name>)* ')'
@@ -203,11 +200,11 @@ pub struct ParamList(pub Vec<(Type, Name)>);
 /*
 Fun ::= <Type> <Name> <Arguments> <Body>
 */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Fun {
     pub typ: Type,
     pub name: Name,
-    pub params: ParamList,
+    pub params: Rc<ParamList>,
     pub body: Rc<Stmt>,
 }
 

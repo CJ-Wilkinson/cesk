@@ -2,6 +2,7 @@ use crate::ast::*;
 
 use super::parts::control::Control;
 use Control::*;
+use chumsky::prelude::todo;
 use super::parts::environment::Env;
 use super::parts::store::Store;
 use super::parts::kont::Kont;
@@ -12,9 +13,11 @@ use Expr::*;
 use Stmt::*;
 use Value::*;
 
+use core::prelude::v1;
 use std::collections::HashMap;
 use std::convert::From;
 use std::fmt;
+use std::ops::Neg;
 use std::rc::Rc;
 
 use super::prog_handler::ProgramHandler;
@@ -87,7 +90,7 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    DeclD(_, id, expr) => Self { // ! Get rid of
+                    DeclD(_, lval, expr) => Self { // ! Get rid of
                         c: match expr {
                             Some(expr) => AstExpr(expr.clone()),
                             None => AstExpr(Rc::new(Val(Rc::new(UnitV)))),
@@ -95,22 +98,22 @@ impl Config {
                         e: self.e.clone(),
                         s: self.s.clone(),
                         k: Rc::new(DeclK(
-                            id.clone(), // TODO should be copy?
+                            lval.clone(), // TODO should be copy?
                             handler.successor_lookup(s.clone()),
                             self.k.clone(),
                         )),
                     },
-                    Decl(id) => Self { // ? lval not id
+                    Decl(lval) => Self {
                         /* Introduce variable into environment */
                         c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
                         e: {
                             let mut new_env = (*self.e).clone();
-                            new_env.0.insert(id.clone(), handler.get_address());
+                            new_env.0.insert(lval.clone(), handler.get_address());
                             Rc::new(new_env)
                         },
                         s: self.s.clone(),
                         k: Rc::new(DeclK(
-                            id.clone(),
+                            lval.clone(),
                             handler.successor_lookup(s.clone()),
                             self.k.clone(),
                         )),
@@ -127,7 +130,7 @@ impl Config {
                     },
                     Return(expr) => match self.k.as_ref() {
                         BlocK(_, _, k) => Self {
-                            c: AstExpr(expr.clone()), // ! Don't put expression in yet
+                            c: AstStmt(s.clone()),
                             e: self.e.clone(),
                             s: self.s.clone(),
                             k: k.clone(),
@@ -147,17 +150,31 @@ impl Config {
                                 k.clone()
                             )),
                         },
+                        Mt => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        },
                         _ => panic!("Found some other Kont"),
                     },
-                    Block(stmts) => Self {
-                        c: AstStmt(stmts.get(0).unwrap().clone()), // TODO unwrap
-                        e: self.e.clone(),
-                        s: self.s.clone(),
-                        k: Rc::new(BlocK(
-                            self.e.clone(),
-                            handler.successor_lookup(s.clone()),
-                            self.k.clone(),
-                        )),
+                    Block(stmts) => match stmts.get(0) {
+                        Some(stmt) => Self {
+                            c: AstStmt(stmts.get(0).unwrap().clone()), // TODO unwrap
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(BlocK(
+                                self.e.clone(),
+                                handler.successor_lookup(s.clone()),
+                                self.k.clone(),
+                            ))
+                        },
+                        None => Self {
+                            c: AstStmt(handler.successor_lookup(s.clone())),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        }
                     },
                     Break => match self.k.as_ref(){
                         WhileK(env,_cond ,_body ,succ ,k ) => Self {
@@ -172,7 +189,7 @@ impl Config {
                             s: self.s.clone(),
                             k: k.clone()
                         },
-                        _ => panic!("Found some other Kont"),
+                        k => panic!("Found some other Kont : {k:?}"),
                     }, 
                     While(cond,body) => Self {
                         c: AstExpr(cond.clone()),
@@ -199,9 +216,10 @@ impl Config {
                             s: self.s.clone(),
                             k: k.clone(),
                         },
-                        _ => panic!("Found some other Kont"),
+                        k => panic!("Found some other Kont : {k:?}"),
                     },
-                    _ => todo!(),
+                    WhileD(_, _) => panic!("WhileD found in "), // ! Will be removed later
+                    ForD(_, _, _, _) => todo!() // ! Will be removed later
                 }
             }
             AstExpr(e) => match e.as_ref() {
@@ -237,16 +255,14 @@ impl Config {
                     // Bind the first item in array to addrss
                     match exprs.first() {
                         Some(expr) => {
-                            if let Val(v) = expr {
+                            if let Val(v) = expr.as_ref() {
                                 new_store.insert(addr, v.clone())
                             }
                         }
                         None => (),
                     }
-
-                    // new_store.0.insert(addr.clone(), v1.clone());
                     for expr in exprs.iter().skip(1) {
-                        if let Val(v) = expr {
+                        if let Val(v) = expr.as_ref() {
                             new_store.insert(handler.get_address(), v.clone());
                         }
                     }
@@ -266,21 +282,46 @@ impl Config {
                         s: self.s.clone(),
                         k: self.k.clone(),
                     },
-                    None => panic!(),
+                    None => panic!("Undefined variable: {name}"),
                 },
-                Call(_, _) => todo!(),
-                _ => todo!(),
+                CallRef(fun, args) => match args.slice_ref() { 
+                    [first, rest @ ..] => Self {
+                        c: AstExpr(first.clone()),
+                        e: Rc::new(Env::new()),
+                        s: self.s.clone(),
+                        k: Rc::new(CallK(
+                            self.e.clone(),
+                            fun.clone(),
+                            fun.params.clone(),
+                            Rc::new(Arguments::from(rest)),
+                            self.k.clone(),
+                        ))
+                    },
+                    [] => Self {
+                            c: AstStmt(fun.body.clone()),
+                            e: Rc::new(Env::new()),
+                            s: self.s.clone(),
+                            k: Rc::new(FunK(
+                                self.e.clone(),
+                                self.k.clone(),
+                            )),
+                    },
+                },
+                Val(v) => self.invoke_kont(v.clone(), handler),
+                CallName(name,_) => panic!("CallName expression encountered {name}"),
+                Neg(_) => todo!(), // ! Will get desugared to 0 - val
+                Index(_, _) => todo!(),
             },
-            Addr(_) => todo!(),
+            Addr(_) => todo!(), // ? When?
         }
     }
-    fn invoke_kont(&self, v1: &Rc<Value>, handler: &mut ProgramHandler) -> Config {
+    fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
         match self.k.as_ref() {
             OpK(op, expr, k) => {
                 // Is the expression a value?
                 match expr.as_ref() {
                     Val(v2) => Self {
-                        c: AstExpr(Rc::new(Val(Rc::new(op.call(v2, v1))))),
+                        c: AstExpr(Rc::new(Val(Rc::new(op.call(v2, &v1))))),
                         e: self.e.clone(),
                         s: self.s.clone(),
                         k: k.clone(),
@@ -296,7 +337,7 @@ impl Config {
                         )),
                     },
                 }
-            }
+            },
             IfK(true_b, false_b, succ, k) => Self {
                 c: AstStmt((match v1.as_ref() {
                     BoolV(true) => true_b,
@@ -310,7 +351,7 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            DeclK(id, succ, k) => {
+            DeclK(lval, succ, k) => {
                 // Get new address
                 let addr = handler.get_address();
 
@@ -318,7 +359,7 @@ impl Config {
                     c: AstStmt(succ.clone()),
                     e: {
                         let mut new_env = (*self.e).clone();
-                        new_env.0.insert(id.clone(), addr.clone());
+                        new_env.0.insert(lval.clone(), addr.clone());
                         Rc::new(new_env)
                     },
                     s: {
@@ -335,8 +376,8 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            AssignK(id, succ, k) => { // TODO Redo this 
-                let addr: &Address = match id.as_ref() {
+            AssignK(lval, succ, k) => { // TODO Redo this 
+                let addr: &Address = match lval.as_ref() {
                     Var(n) => {
                         if let Some(addr) = self.e.0.get(n) {
                             addr
@@ -363,12 +404,56 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            CallK(_, _, _, _) => todo!(),
+            CallK(env, fun, params, args, k) => {
+                match (args.slice_ref(), params.slice_ref()) {
+                    ([first, rest @ ..], [pfirst, prest @ ..]) => Self {
+                        c: AstExpr(first.clone()),
+                        e: Rc::new(Env::new()),
+                        s: self.s.clone(),
+                        k: Rc::new(CallK(
+                            self.e.clone(),
+                            fun.clone(),
+                            fun.params.clone(),
+                            Rc::new(Arguments::from(rest)),
+                            self.k.clone(),
+                        ))
+                    },
+                    ([], []) => Self {
+                            c: AstStmt(fun.body.clone()),
+                            e: Rc::new(Env::new()),
+                            s: self.s.clone(),
+                            k: Rc::new(FunK(
+                                self.e.clone(),
+                                self.k.clone(),
+                            )),
+                    },
+                    _ => panic!("Mismatched number of arguments and paramenters"),
+                }
+            },
+            ExprStmtK(succ, k) => Self {
+                c: AstStmt(succ.clone()),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: k.clone()
+            },
+            WhileK(env, cond, body, succ, k) => match v1.as_ref() {
+                BoolV(true) => Self {
+                    c: AstStmt(body.clone()),
+                    e: self.e.clone(),
+                    s: self.s.clone(),
+                    k: self.k.clone(),
+                },
+                BoolV(false) => Self {
+                    c: AstStmt(succ.clone()),
+                    e: env.clone(),
+                    s: self.s.clone(),
+                    k: k.clone(),
+                },
+                _ => panic!("Non-Boolean found in condition")
+            },
             FunK(_, _) => todo!(),
-            ExprStmtK(_, _) => todo!(),
-            WhileK(_, _, _, _, _) => todo!(),
             IdK(_,_ ,_ ) => todo!(),
-            _ => todo!(),
+            Mt => panic!("Exited with code {v1}"),
         }
     }
 }
