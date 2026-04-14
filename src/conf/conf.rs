@@ -1,229 +1,528 @@
-use crate::ast::{Expr, Fun, Name, Stmt, Type, Value};
+use crate::ast::*;
+
+use super::parts::control::Control;
+use Control::*;
+use chumsky::prelude::todo;
+use super::parts::environment::Env;
+use super::parts::store::Store;
+use super::parts::kont::Kont;
+use Kont::*;
+use super::parts::address::Address;
+use Expr::*;
+
+use Stmt::*;
+use Value::*;
+
+use core::prelude::v1;
 use std::collections::HashMap;
+use std::convert::From;
+use std::fmt;
+use std::ops::Neg;
 use std::rc::Rc;
 
-// TODO see if this can be turned back into &str
-type Env<'src> = HashMap<&'src str, i32>;
-type Store<'src> = HashMap<i32, &'src Value>;
-
-/// The control can be either an expression or a statement
-#[derive(Debug, Clone)]
-pub enum Control<'src> {
-    // For external AST references
-    AstExpr(&'src Expr),
-    // For external AST references
-    AstStmt(&'src Stmt),
-    // For evaluated expressions, move ownership into Control
-    Expr(Expr),
-    // need this?
-    Stmt(Stmt),
-}
-
-pub fn fun_lookup<'src>(_name: &'src str) -> Fun {
-    todo!()
-}
-
-// pub fn successor_lookup<'src>(stmt: &'src Stmt) -> &'src Stmt {
-pub fn successor_lookup<'src>(_stmt: &'src Stmt) -> &'src Stmt {
-    &Stmt::Break
-}
-
-pub fn alloc() -> i32 {
-    0
-}
-
-//#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-//struct Address;
+use super::prog_handler::ProgramHandler;
 
 #[derive(Debug)]
-pub enum Kont<'src> {
-    Mt,
-    // Kont for Declaration
-    DeclK(
-        // Environment for Kont
-        Rc<Env<'src>>,
-        Type,
-        Name,
-        // Control for Kont
-        Control<'src>,
-        // Nested Kont
-        Rc<Kont<'src>>,
-    ),
-    IfK(
-        // Environment
-        Rc<Env<'src>>,
-        // true branch
-        Control<'src>,
-        // false branch
-        Option<Control<'src>>,
-        // Alternate version from Stmt::If->False branch
-        // Option<Box<Stmt<'src>>>
-        // Kont
-        Rc<Kont<'src>>,
-    ),
+pub struct Config {
+    c: Control,
+    e: Rc<Env>,
+    s: Rc<Store>,
+    k: Rc<Kont>,
 }
 
-#[derive(Debug)]
-struct Configuration<'src> {
-    c: Control<'src>,
-    e: Rc<Env<'src>>,
-    s: Rc<Store<'src>>,
-    k: Rc<Kont<'src>>,
+impl fmt::Display for Config {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "<{}, {}, {}, {:?}>", self.c, self.e, self.s, self.k)
+    }
 }
 
-impl<'src> Configuration<'src> {
-    pub fn next(&'src self) -> Self {
-        match self.c {
-            Control::AstStmt(Stmt::If(condition, true_branch, false_branch)) => {
-                Self {
-                    c: Control::AstExpr(condition),
-                    e: self.e.clone(),
-                    s: self.s.clone(),
-                    k: Rc::new(Kont::IfK(
-                        self.e.clone(),
-                        Control::AstStmt(true_branch),
-                        //&Control::AstStmt(false_branch.unwrap().as_ref().unwrap()),
-                        match false_branch {
-                            Some(x) => Some(Control::AstStmt(x.as_ref())),
-                            None => None,
-                        },
-                        self.k.clone(),
-                    )),
-                }
-            }
-            Control::AstStmt(Stmt::Assign(_l, _r)) => todo!(),
-            Control::AstStmt(Stmt::ExprStmt(_expr)) => todo!(),
-            Control::AstStmt(stmt @ Stmt::Decl(_typ, _name, None)) => Self {
-                c: Control::AstStmt(successor_lookup(stmt)),
-                e: self.e.clone(),
-                s: self.s.clone(),
-                k: self.k.clone(),
-            },
-            Control::AstStmt(stmt @ Stmt::Decl(typ, name, Some(init))) => Self {
-                c: Control::AstExpr(init),
-                e: self.e.clone(),
-                s: self.s.clone(),
-                k: Rc::new(Kont::DeclK(
-                    self.e.clone(),
-                    typ.clone(),
-                    name.clone(),
-                    Control::AstStmt(successor_lookup(stmt)),
-                    self.k.clone(),
-                )),
-            },
-            Control::AstStmt(Stmt::Return(Some(_expr))) => todo!(),
-            Control::AstStmt(Stmt::Return(None)) => todo!(),
-            Control::AstStmt(Stmt::Block(_stmts)) => todo!(),
-            Control::AstStmt(Stmt::While(_condition, _stmt)) => todo!(),
-            Control::AstStmt(Stmt::Break) => todo!(),
-            Control::AstStmt(Stmt::Continue) => todo!(),
+impl From<&Rc<Stmt>> for Config { // * Config helper
+    fn from(s: &Rc<Stmt>) -> Self {
+        Self {
+            c: AstStmt(s.clone()),
+            e: Rc::new(Env::new()),
+            s: Rc::new(Store::new()),
+            k: Rc::new(Mt),
+        }
+    }
+}
 
-            Control::AstExpr(e) => match e {
-                // only spot to invoke kont
-                Expr::Val(v) => self.invoke_kont(&v),
-                Expr::Neg(_expr) => todo!(),
-                // TODO: Add nested expressions
-                Expr::ArithBinop(left, op, right) => {
-                    // TODO let's clean this up a bit
-                    let l = match left.as_ref() {
-                        Expr::Val(Value::IntV(x)) => *x,
-                        _ => panic!("left of binop"),
-                    };
-                    let r = match right.as_ref() {
-                        Expr::Val(Value::IntV(x)) => *x,
-                        _ => panic!("right of binop"),
-                    };
-                    Self {
-                        c: Control::Expr(Expr::Val(Value::IntV(op.call(l, r)))),
+impl From<Expr> for Config { // * Config helper
+    fn from(e: Expr) -> Self {
+        Self {
+            c: AstExpr(Rc::new(e)),
+            e: Rc::new(Env::new()),
+            s: Rc::new(Store::new()),
+            k: Rc::new(Mt),
+        }
+    }
+}
+
+impl Config {
+    pub fn next(&self, handler: &mut ProgramHandler) -> Self {
+        // Match control
+        match &self.c {
+            AstStmt(s) => {
+                // Match on statement
+                match s.as_ref() {
+                    // Expression Statement
+                    ExprStmt(expr) => Self {
+                        c: AstExpr(expr.clone()),
                         e: self.e.clone(),
                         s: self.s.clone(),
+                        k: Rc::new(ExprStmtK(
+                            handler.successor_lookup(s.clone()),
+                            self.k.clone()
+                        )),
+                    },
+                    // If statement
+                    If(expr, true_b, false_b) => Self {
+                        c: AstExpr(expr.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(IfK(
+                            true_b.clone(),
+                            match false_b {
+                                Some(false_b) => Some(false_b.clone()),
+                                None => None,
+                            },
+                            handler.successor_lookup(s.clone()),
+                            self.k.clone(),
+                        )),
+                    },
+                    DeclD(_, lval, expr) => Self { // ! Get rid of
+                        c: match expr {
+                            Some(expr) => AstExpr(expr.clone()),
+                            None => AstExpr(Rc::new(Val(Rc::new(UnitV)))),
+                        },
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(DeclK(
+                            lval.clone(), // TODO should be copy?
+                            handler.successor_lookup(s.clone()),
+                            self.k.clone(),
+                        )),
+                    },
+                    Decl(lval) => Self {
+                        /* Introduce variable into environment */
+                        c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
+                        e: {
+                            let mut new_env = (*self.e).clone();
+                            new_env.0.insert(lval.clone(), handler.get_address());
+                            Rc::new(new_env)
+                        },
+                        s: self.s.clone(),
+                        k: Rc::new(DeclK(
+                            lval.clone(),
+                            handler.successor_lookup(s.clone()),
+                            self.k.clone(),
+                        )),
+                    },
+                    Assign(lval, rval) => Self {
+                        c: AstExpr(rval.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(AssignK(
+                            lval.clone(),
+                            handler.successor_lookup(s.clone()),
+                            self.k.clone(),
+                        )),
+                    },
+                    Return(expr) => match self.k.as_ref() {
+                        BlocK(_, _, k) => Self {
+                            c: AstStmt(s.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        ReturnK(_, _) => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        },
+                        FunK(env,k ) => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(ReturnK(
+                                env.clone(),
+                                k.clone()
+                            )),
+                        },
+                        Mt => Self {
+                            c: AstExpr(expr.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        },
+                        _ => panic!("Found some other Kont"),
+                    },
+                    Block(stmts) => match stmts.get(0) {
+                        Some(stmt) => Self {
+                            c: AstStmt(stmts.get(0).unwrap().clone()), // TODO unwrap
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(BlocK(
+                                self.e.clone(),
+                                handler.successor_lookup(s.clone()),
+                                self.k.clone(),
+                            ))
+                        },
+                        None => Self {
+                            c: AstStmt(handler.successor_lookup(s.clone())),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        }
+                    },
+                    Break => match self.k.as_ref(){
+                        WhileK(env,_cond ,_body ,succ ,k ) => Self {
+                            c: AstStmt(succ.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        BlocK(env, succ, k ) => Self {
+                            c: AstStmt(s.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: k.clone()
+                        },
+                        k => panic!("Found some other Kont : {k:?}"),
+                    }, 
+                    While(cond,body) => Self {
+                        c: AstExpr(cond.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(WhileK(
+                            self.e.clone(),
+                            cond.clone(),
+                            body.clone(),
+                            handler.successor_lookup(s.clone()),
+                            self.k.clone(),
+                        )),
+                    },
+                    Continue => match self.k.as_ref() {
+                        WhileK(env,cond,_,_,k) => Self {
+                            c: AstExpr(cond.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone(),
+                        },
+                        BlocK(env,_,k) => Self {
+                            c: AstStmt(s.clone()),
+                            e: env.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        k => panic!("Found some other Kont : {k:?}"),
+                    },
+                    WhileD(_, _) => panic!("WhileD found in "), // ! Will be removed later
+                    ForD(_, _, _, _) => todo!() // ! Will be removed later
+                }
+            }
+            AstExpr(e) => match e.as_ref() {
+                BinaryOp(l, op, r) => {
+                    if let (Val(l), Val(r)) = (l.as_ref(), r.as_ref()) {
+                        Self {
+                            c: AstExpr(Rc::new(Val(Rc::new(op.call(l, r))))),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: self.k.clone()
+                        }
+                    } else {
+                        Self {
+                            c: AstExpr(l.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(OpK(
+                                *op,
+                                r.clone(),
+                                self.k.clone()
+                            )),
+                        }
+                    }
+                }
+                Array(exprs) => {
+                    // Get the first address
+                    let addr = handler.get_address();
+                    // Build the array handler value
+                    let array_ref = Value::ArrayV(exprs.len(), addr.clone());
+                    // Get new store
+                    let mut new_store = (*self.s).clone();
+
+                    // Bind the first item in array to addrss
+                    match exprs.first() {
+                        Some(expr) => {
+                            if let Val(v) = expr.as_ref() {
+                                new_store.insert(addr, v.clone())
+                            }
+                        }
+                        None => (),
+                    }
+                    for expr in exprs.iter().skip(1) {
+                        if let Val(v) = expr.as_ref() {
+                            new_store.insert(handler.get_address(), v.clone());
+                        }
+                    }
+                    // Make new environment
+                    // Place the handler in the control
+                    Self {
+                        c: AstExpr(Rc::new(Val(Rc::new(array_ref)))),
+                        e: self.e.clone(),
+                        s: Rc::new(new_store),
                         k: self.k.clone(),
                     }
                 }
-                Expr::CompareBinop(_left, _op, _right) => todo!(),
-                Expr::Var(_name) => todo!(),
-                Expr::Call(_name, _exprs) => todo!(),
-                Expr::Array(_exprs) => todo!(),
+                Var(name) => match self.e.get(name) {
+                    Some(addr) => Self {
+                        c: AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: self.k.clone(),
+                    },
+                    None => panic!("Undefined variable: {name}"),
+                },
+                CallRef(fun, args) => match args.slice_ref() { 
+                    [first, rest @ ..] => Self {
+                        c: AstExpr(first.clone()),
+                        e: Rc::new(Env::new()),
+                        s: self.s.clone(),
+                        k: Rc::new(CallK(
+                            self.e.clone(),
+                            fun.clone(),
+                            fun.params.clone(),
+                            Rc::new(Arguments::from(rest)),
+                            self.k.clone(),
+                        ))
+                    },
+                    [] => Self {
+                            c: AstStmt(fun.body.clone()),
+                            e: Rc::new(Env::new()),
+                            s: self.s.clone(),
+                            k: Rc::new(FunK(
+                                self.e.clone(),
+                                self.k.clone(),
+                            )),
+                    },
+                },
+                Val(v) => self.invoke_kont(v.clone(), handler),
+                CallName(name,_) => panic!("CallName expression encountered {name}"),
+                Neg(_) => todo!(), // ! Will get desugared to 0 - val
+                Index(_, _) => todo!(),
             },
-            _ => todo!(),
+            Addr(_) => todo!(), // ? When?
         }
     }
-
-    fn invoke_kont(&'src self, v: &'src Value) -> Self {
+    fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
         match self.k.as_ref() {
-            Kont::DeclK(e, _t, Name(n), succ, k) => {
-                let addr = alloc();
-                let mut e_prime: Env = (**e).clone();
-                e_prime.insert(n, addr);
-                let mut s_prime = (*self.s).clone();
-                s_prime.insert(addr, v);
+            OpK(op, expr, k) => {
+                // Is the expression a value?
+                match expr.as_ref() {
+                    Val(v2) => Self {
+                        c: AstExpr(Rc::new(Val(Rc::new(op.call(v2, &v1))))),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: k.clone(),
+                    },
+                    _ => Self {
+                        c: AstExpr(expr.clone()),
+                        e: self.e.clone(),
+                        s: self.s.clone(),
+                        k: Rc::new(OpK(
+                            *op,
+                            Rc::new(Expr::Val(v1.clone())),
+                            k.clone(),
+                        )),
+                    },
+                }
+            },
+            IfK(true_b, false_b, succ, k) => Self {
+                c: AstStmt((match v1.as_ref() {
+                    BoolV(true) => true_b,
+                    BoolV(false) => match false_b {
+                        Some(false_b) => false_b,
+                        None => succ,
+                    },
+                    _ => panic!(),
+                }).clone()),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
+            },
+            DeclK(lval, succ, k) => {
+                // Get new address
+                let addr = handler.get_address();
+
                 Self {
-                    c: succ.clone(),
-                    e: Rc::new(e_prime),
-                    s: Rc::new(s_prime),
-                    k: Rc::clone(k),
+                    c: AstStmt(succ.clone()),
+                    e: {
+                        let mut new_env = (*self.e).clone();
+                        new_env.0.insert(lval.clone(), addr.clone());
+                        Rc::new(new_env)
+                    },
+                    s: {
+                        let mut new_store = (*self.s).clone();
+                        new_store.insert(addr.clone(), v1.clone());
+                        Rc::new(new_store)
+                    },
+                    k: k.clone(),
                 }
             }
-            _ => todo!(),
+            ReturnK(env, k) => Self {
+                c: AstExpr(Rc::new(Expr::Val(v1.clone()))),
+                e: env.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
+            },
+            AssignK(lval, succ, k) => { // TODO Redo this 
+                let addr: &Address = match lval.as_ref() {
+                    Var(n) => {
+                        if let Some(addr) = self.e.0.get(n) {
+                            addr
+                        } else {
+                            panic!()
+                        }
+                    }
+                    _ => todo!(), // TODO Array indexing
+                };
+                Self {
+                    c: AstStmt(succ.clone()),
+                    e: self.e.clone(),
+                    s: {
+                        let mut new_store = (*self.s).clone();
+                        new_store.insert(addr.clone(), v1.clone());
+                        Rc::new(new_store)
+                    },
+                    k: k.clone(),
+                }
+            }
+            BlocK(env, succ, k) => Self {
+                c: AstStmt(succ.clone()),
+                e: env.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
+            },
+            CallK(env, fun, params, args, k) => {
+                match (args.slice_ref(), params.slice_ref()) {
+                    ([first, rest @ ..], [pfirst, prest @ ..]) => Self {
+                        c: AstExpr(first.clone()),
+                        e: Rc::new(Env::new()),
+                        s: self.s.clone(),
+                        k: Rc::new(CallK(
+                            self.e.clone(),
+                            fun.clone(),
+                            fun.params.clone(),
+                            Rc::new(Arguments::from(rest)),
+                            self.k.clone(),
+                        ))
+                    },
+                    ([], []) => Self {
+                            c: AstStmt(fun.body.clone()),
+                            e: Rc::new(Env::new()),
+                            s: self.s.clone(),
+                            k: Rc::new(FunK(
+                                self.e.clone(),
+                                self.k.clone(),
+                            )),
+                    },
+                    _ => panic!("Mismatched number of arguments and paramenters"),
+                }
+            },
+            ExprStmtK(succ, k) => Self {
+                c: AstStmt(succ.clone()),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: k.clone()
+            },
+            WhileK(env, cond, body, succ, k) => match v1.as_ref() {
+                BoolV(true) => Self {
+                    c: AstStmt(body.clone()),
+                    e: self.e.clone(),
+                    s: self.s.clone(),
+                    k: self.k.clone(),
+                },
+                BoolV(false) => Self {
+                    c: AstStmt(succ.clone()),
+                    e: env.clone(),
+                    s: self.s.clone(),
+                    k: k.clone(),
+                },
+                _ => panic!("Non-Boolean found in condition")
+            },
+            FunK(_, _) => todo!(),
+            IdK(_,_ ,_ ) => todo!(),
+            Mt => panic!("Exited with code {v1}"),
         }
     }
 }
-
-/*
-pub fn parser<'src>() -> impl Parser<'src, '&src str, Program<'src> {
-todo!()
-}
-*/
-
-fn it_works() {
-    let ast = Stmt::Decl(
-        Type::IntT,
-        Name("CESK".to_string()),
-        Some(Expr::Val(Value::IntV(42))),
-    );
-    let sigma_0 = Configuration {
-        c: Control::AstStmt(&ast),
-        e: Rc::new(HashMap::new()),
-        s: Rc::new(HashMap::new()),
-        k: Rc::new(Kont::Mt),
-    };
-    let sigma_1 = sigma_0.next();
-    println!("{:?}", sigma_1);
-    let sigma_2 = sigma_1.next();
-    println!("{:?}", sigma_2);
-}
-
-pub fn parse(_filename: &str) {
-    println!("Hello");
-    it_works();
-    //let src = std::fs::read_to_string(filename).unwrap();
-    //println!("{src}");
-    //let stmts: Vec<_> = src.split_whitespace().collect();
-    //println!("stmts: {:?}", stmts);
-}
-
-// src/lib.rs or src/main.rs
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn it_works() {
-        let ast = Stmt::Decl(
-            Type::IntT,
-            Name("CESK".to_string()),
-            Some(Expr::Val(Value::IntV(42))),
-        );
-        let sigma_0 = Configuration {
-            c: Control::AstStmt(&ast),
-            e: Rc::new(HashMap::new()),
-            s: Rc::new(HashMap::new()),
-            k: Rc::new(Kont::Mt),
-        };
-        let sigma_1 = sigma_0.next();
-        println!("{:?}", sigma_1);
-        let sigma_1 = sigma_0.next();
-        println!("{:?}", sigma_1);
+    fn is_terminal(conf: &Config) -> Option<Rc<Value>> {
+        match &conf.c {
+            AstExpr(e) => match e.as_ref() {
+                Val(v) => {
+                    if *conf.k == Mt {
+                        Some(v.clone())
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            },
+            _ => None,
+        }
     }
+
+    // #[test]
+    // fn arith_test() {
+    //     // Not a real test. Runs a basic arithmetic expression
+    //     // let ast = Op(
+    //     //     Rc::new(Val(Rc::new(IntV(9)))),
+    //     //     Operation::Add,
+    //     //     Rc::new(Op(
+    //     //         Rc::new(Val(Rc::new(IntV(27)))),
+    //     //         Operation::Div,
+    //     //         Rc::new(Val(Rc::new(IntV(9)))),
+    //     //     )),
+    //     // );
+    //     let ast = If(
+    //         Rc::new(BinaryOp(
+    //             Rc::new(Val(Rc::new(IntV(3)))),
+    //             Operation::Lt,
+    //             Rc::new(Val(Rc::new(IntV(4)))),
+    //         )),
+    //         Rc::new(DeclD(
+    //             Type::IntT,
+    //             Name("Hi".to_string()),
+    //             Some(Rc::new(BinaryOp(
+    //                 Rc::new(Val(Rc::new(IntV(9)))),
+    //                 Operation::Add,
+    //                 Rc::new(BinaryOp(
+    //                     Rc::new(Val(Rc::new(IntV(27)))),
+    //                     Operation::Div,
+    //                     Rc::new(Val(Rc::new(IntV(9)))),
+    //                 )),
+    //             ))),
+    //         )),
+    //         None,
+    //     );
+    //     let mut conf = Config::from(ast);
+    //     loop {
+    //         println!("{}", conf);
+    //         //print!("c: {}, e: {}, s: {}, k: {}")
+    //         conf = conf.next();
+    //         match is_terminal(&conf) {
+    //             Some(v) => {
+    //                 println!("Got: {:?}", v);
+    //                 assert_eq!(IntV(12), *v);
+    //                 return;
+    //             }
+    //             None => (),
+    //         }
+    //     }
+    // }
 }

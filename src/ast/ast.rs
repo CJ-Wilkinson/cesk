@@ -1,25 +1,40 @@
-#[derive(Debug, Clone, PartialEq, Eq)]
+use std::collections::BTreeMap;
+use std::iter::Iterator;
+use std::rc::Rc;
+
+use crate::conf::parts::address::Address;
+
+/*
+Name ::= [a-zA-z][a-zA-Z0-9_]*
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Name(pub String);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/*
+Fun ::= int-lit | true | false | '()'
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Value {
     IntV(i32),
     BoolV(bool),
-    VoidV,
-    ArrayV(Vec<Value>),
+    UnitV,
+    ArrayV(
+        usize,   // Size of array
+        Address, // First address of array
+    ),
+    AddrV(Address),
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ArithBinop {
+// thing = [1, 2, 3]
+/*
+Operation ::= '+' | '*' | '-' | '/' | '%' | '==' | '!=' | '<' | '>' | '<=' | '>='
+*/
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Operation {
     Add,
     Mult,
     Sub,
     Div,
     Rem,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CompareBinop {
     Eq,
     Neq,
     Lt,
@@ -28,84 +43,210 @@ pub enum CompareBinop {
     Gte,
 }
 
-impl ArithBinop {
-    pub fn call(&self, lhs: i32, rhs: i32) -> i32 {
-        match self {
-            Self::Add => lhs + rhs,
-            Self::Sub => lhs - rhs,
-            Self::Mult => lhs * rhs,
-            Self::Div => lhs / rhs,
-            Self::Rem => lhs % rhs,
+impl Operation {
+    pub fn call(&self, lhs: &Value, rhs: &Value) -> Value {
+        if let (Value::IntV(lhs), Value::IntV(rhs)) = (lhs, rhs) {
+            use Value::*;
+            match self {
+                Self::Add => IntV(lhs + rhs),
+                Self::Sub => IntV(lhs - rhs),
+                Self::Mult => IntV(lhs * rhs),
+                Self::Div => IntV(lhs / rhs),
+                Self::Rem => IntV(lhs % rhs),
+
+                Self::Eq => BoolV(lhs == rhs),
+                Self::Neq => BoolV(lhs != rhs),
+                Self::Lt => BoolV(lhs < rhs),
+                Self::Gt => BoolV(lhs > rhs),
+                Self::Lte => BoolV(lhs <= rhs),
+                Self::Gte => BoolV(lhs >= rhs),
+            }
+        } else {
+            panic!("Type mismatch for operation: {:?}", self)
         }
     }
 }
 
-impl CompareBinop {
-    pub fn call(&self, lhs: i32, rhs: i32) -> bool {
-        match self {
-            Self::Eq => lhs == rhs,
-            Self::Neq => lhs != rhs,
-            Self::Lt => lhs < rhs,
-            Self::Gt => lhs > rhs,
-            Self::Lte => lhs <= rhs,
-            Self::Gte => lhs >= rhs,
-        }
-    }
-}
-
-/// # Expressions
-/// e := i32 | - (negative) | + | * | - (subtraction) | / | % | == | != | < |  <= | >= | label
-///     | fn call | []
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
-    Val(Value),
-
-    Neg(Box<Expr>),
-    ArithBinop(Box<Expr>, ArithBinop, Box<Expr>),
-    CompareBinop(Box<Expr>, CompareBinop, Box<Expr>),
-
+    /*
+    Expr ::= <Val>
+    */
+    Val(Rc<Value>),
+    /*
+    Expr ::= '-' <Expr>
+    */
+    Neg(Rc<Expr>),
+    /*
+    Expr ::= <Expr> <Operation> <Expr>
+    */
+    BinaryOp(Rc<Expr>, Operation, Rc<Expr>),
+    /*
+    Expr ::= <Name>
+    */
     Var(Name),
+    /*
+    Expr ::= <Name> <ParamList>
+    */
+    CallName(Name, Arguments),
+    CallRef(Rc<Fun>, Arguments), // ! Change everything over
 
-    Call(Name, Vec<Expr>),
-    Array(Vec<Expr>),
+    Array(Vec<Rc<Expr>>),
+    Index(Name, Rc<Expr>),
+    // Deref(Rc<Expr>),
+    // Ref(Name),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Type {
+    /*
+    Type ::= 'int'
+    */
     IntT,
+    /*
+    Type ::= 'bool'
+    */
     BoolT,
-    VoidT,
-    ArrayT(Box<Type>),
+    /*
+    Type ::= '()'
+    */
+    UnitT,
+    /*
+    Type ::= '?'
+    */
+    ArrayT(Rc<Type>),
 }
 
-/// # Statements
-/// s := if | = | expression | declaration (e.g. `int x = 1;`) | return (e)? | {} | while | break
-///     | continue
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Stmt {
-    If(Expr, Box<Stmt>, Option<Box<Stmt>>),
-    Assign(Expr, Expr),
-    ExprStmt(Expr),
-    Decl(Type, Name, Option<Expr>),
-    Return(Option<Expr>),
-    Block(Vec<Stmt>),
-    While(Expr, Box<Stmt>),
-    Break,
+    /*
+    Declaration that will be desugared
+    DeclD ::= <Type> <Name> ('=' <Expr>)? ';'
+    */
+    DeclD(Type, Name, Option<Rc<Expr>>),
+    /*
+    For loop that will be desugared.
+    If ::= 'for' '(' <Expr> ';' <Expr> ';' <Expr> ')' <Stmt>
+    */
+    ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
+    /*
+    While ::= 'while' '(' <Expr> ')' <Stmt>
+    */
+    WhileD(Rc<Expr>, Rc<Stmt>), // ! Get rid of this
+
+    // Rules used in CESK
+    /*
+    The <If> statement will contain a conditional <Expr>, a true
+    branch <Stmt> and an optional false branch <Stmt>.
+    If ::= 'if' '(' <Expr> ')' <Stmt> ('else' <Stmt>)?
+    */
+    If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
+    /*
+    The <Assign> will contain a assignment location (can be a variable or member of array) of <Expr>
+    and the thing to be assigned <Expr>.
+    */
+    Assign(Rc<Expr>, Rc<Expr>),
+    /*
+    The <ExprStmt> will only contain some <Expr> to be evaluated.
+    ExprStmt ::= <Expr> ';'
+    */
+    ExprStmt(Rc<Expr>),
+    /*
+    The <Decl> will be what introduces a <Name> into the environment. No other information should
+    be needed since type checking should have occured.
+
+    */
+    Decl(Name),
+    /*
+    The <Return> will always return some <Expr>. This can be some value or Unit.
+    */
+    Return(Rc<Expr>),
+    /*
+    The block will hold a vector of <Stmt>.
+    Block ::= '{' <Stmt>* '}'
+    */
+    Block(Vec<Rc<Stmt>>),
+    While(Rc<Expr>,Rc<Stmt>),
     Continue,
+    Break,
 }
 
-/// # Function
-/// a function consists of a return type, a name, a list of args, and a body statement
-#[derive(Debug, Clone)]
+impl Iterator for Stmt {
+    type Item = Rc<Stmt>;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Block(stmts) => {
+                let ret = stmts[0].clone();
+                *self = Self::Block(Vec::from(stmts[1..].as_ref()));
+                Some(ret)
+            }
+            _ => panic!("statement has no successors"),
+        }
+    }
+}
+
+/*
+Arguments ::= '(' <Expr>* ')'
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Arguments(pub Vec<Rc<Expr>>);
+
+/*
+ParamList ::= '(' (<Type> <Name>)* ')'
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ParamList(pub Vec<(Type, Name)>);
+
+/*
+Fun ::= <Type> <Name> <Arguments> <Body>
+*/
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Fun {
-    pub rtype: Type,
+    pub typ: Type,
     pub name: Name,
-    pub args: Vec<(Type, Name)>,
-    pub body: Stmt,
+    pub params: Rc<ParamList>,
+    pub body: Rc<Stmt>,
 }
 
+/*
+Program ::= <Fun>+
+*/
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub funs: Vec<Fun>,
+    pub funs: BTreeMap<Name, Fun>,
+}
+
+impl Program {
+    pub fn new() -> Self {
+        Self {
+            funs: BTreeMap::new(),
+        }
+    }
+    pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
+        match self.funs.get(&Name("main".to_string())) {
+            Some(fun) => Ok(fun.body.clone()),
+            None => Err("failed to get entry point"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_iter() {
+        use Stmt::Block;
+        use Stmt::Decl;
+
+        let dec = Rc::new(Decl(Name("x".to_string())));
+        let dec2 = Rc::new(Decl(Name("y".to_string())));
+
+        let mut bl = Block(vec![dec, dec2]);
+
+        assert_eq!(*bl.next().unwrap().as_ref(), Decl(Name("x".to_string())));
+        assert_eq!(*bl.next().unwrap().as_ref(), Decl(Name("y".to_string())));
+        // println!("bl: {:?}", bl.next());
+        // println!("bl: {:?}", bl.next());
+    }
 }

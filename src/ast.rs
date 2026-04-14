@@ -1,3 +1,4 @@
 pub mod ast;
+pub mod methods;
 
-pub use ast::{Expr, Fun, Name, Program, Stmt, Type, Value};
+pub use ast::*;

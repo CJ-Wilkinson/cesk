@@ -1,11 +1,16 @@
-use crate::ast::{Expr, Fun, Name, Program, Stmt, Type, Value};
-use chumsky::prelude::{choice, just, recursive, text, IterParser, Parser};
+use std::collections::BTreeMap;
+use std::rc::Rc;
 
-pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> {
+use crate::ast::*;
+// use chumsky::error::EmptyErr;
+use chumsky::pratt::{infix, left, none, prefix};
+use chumsky::prelude::{IterParser, Parser, choice, just, recursive, text};
+
+pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
     choice((
         text::ascii::keyword("int").padded().to(Type::IntT),
         text::ascii::keyword("bool").padded().to(Type::BoolT),
-        text::ascii::keyword("void").padded().to(Type::VoidT),
+        text::ascii::keyword("unit").padded().to(Type::UnitT),
     ))
 }
 
@@ -15,10 +20,44 @@ pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
         .map(|name: &'src str| Name(name.to_string()))
 }
 
-pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> {
+pub fn add_sub_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
+    choice((
+        just('+').padded().to(Operation::Add),
+        just('-').padded().to(Operation::Sub),
+    ))
+}
+
+pub fn mult_div_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
+    choice((
+        just('*').padded().to(Operation::Mult),
+        just('/').padded().to(Operation::Div),
+        just('%').padded().to(Operation::Rem),
+    ))
+}
+
+pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
+    choice((add_sub_parser(), mult_div_parser()))
+}
+
+pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
+    choice((
+        just('<').padded().to(Operation::Lt),
+        just('>').padded().to(Operation::Gt),
+        text::ascii::keyword("<=").padded().to(Operation::Lte),
+        text::ascii::keyword(">=").padded().to(Operation::Gte),
+        text::ascii::keyword("==").padded().to(Operation::Eq),
+        text::ascii::keyword("!=").padded().to(Operation::Neq),
+    ))
+}
+
+fn atomic_exp_parser<'src, P>(expr: P) -> impl Parser<'src, &'src str, Rc<Expr>> + Clone
+where
+    P: Parser<'src, &'src str, Rc<Expr>> + Clone + 'src,
+{
     let int = text::int(10)
         .map(|s: &str| Value::IntV(s.parse().unwrap()))
         .padded();
+
     let true_v = text::ascii::keyword("true").padded().to(Value::BoolV(true));
     let false_v = text::ascii::keyword("false")
         .padded()
@@ -26,41 +65,145 @@ pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Expr> {
     let bool_v = choice((true_v, false_v));
 
     let value = choice((int, bool_v));
-    let expr = recursive(|expr| {
-        choice((
-            value.map(|v| Expr::Val(v)),
-            just('-')
-                .ignore_then(expr.clone())
-                .map(|e| Expr::Neg(Box::new(e))),
-            ident_parser()
-                .then_ignore(just('('))
-                .then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
-                .then_ignore(just(')'))
-                .map(|(name, args)| Expr::Call(name, args)),
-            ident_parser().map(|n| Expr::Var(n)),
-            just('[')
-                .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
-                .then_ignore(just(']'))
-                .map(|exprs| Expr::Array(exprs)),
-        ))
-    });
-    expr
-}
 
-pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> {
-    // TODO other Stmt variants
     choice((
-        exp_parser()
-            .then_ignore(just(';'))
-            .map(|e| Stmt::ExprStmt(e)),
-        exp_parser()
-            .then_ignore(just('=').padded())
-            .then(exp_parser())
-            .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
+        value.map(|e| Rc::new(Expr::Val(Rc::new(e)))),
+        ident_parser()
+            .then(
+                just('(')
+                    .padded()
+                    .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
+                    .then_ignore(just(')').padded())
+                    .or_not(),
+            )
+            .map(|(n, args)| match args {
+                Some(a) => Rc::new(Expr::CallName(n, Arguments(a))),
+                None => Rc::new(Expr::Var(n)),
+            }),
+        just('(')
+            .padded()
+            .ignore_then(expr.clone())
+            .then_ignore(just(')').padded()),
+        ident_parser()
+            .then(
+                just('[')
+                    .padded()
+                    .ignore_then(expr)
+                    .then_ignore(just(']').padded())
+                    .or_not(),
+            )
+            .map(|(e, i)| match i {
+                Some(index) => Rc::new(Expr::Index(e, index)),
+                None => Rc::new(Expr::Var(e)),
+            }),
     ))
 }
 
-pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
+pub fn exp_parser<'src>() -> impl Parser<'src, &'src str, Rc<Expr>> + Clone {
+    fn make_arith(lhs: Rc<Expr>, op: Operation, rhs: Rc<Expr>) -> Rc<Expr> {
+        Rc::new(Expr::BinaryOp(lhs.clone(), op, rhs.clone()))
+    }
+
+    recursive(|expr: chumsky::prelude::Recursive<dyn Parser<'_, &str, Rc<Expr>>>| {
+        let atom = atomic_exp_parser(expr.clone());
+
+        choice((
+            atom.pratt((
+                infix(none(1), compare_binop_parser(), |l: Rc<Expr>, op: Operation, r: Rc<Expr>, _| {
+                    Rc::new(Expr::BinaryOp(l, op, r))
+                }),
+                infix(left(2), add_sub_parser(), |l: Rc<Expr>, o: Operation, r: Rc<Expr>, _| make_arith(l, o, r)),
+                infix(left(3), mult_div_parser(), |l: Rc<Expr>, o: Operation, r: Rc<Expr>, _| make_arith(l, o, r)),
+                prefix(4, just('-').padded(), |_, e: Rc<Expr>, _| Rc::new(Expr::Neg(e))),
+            )),
+            just('[')
+                .padded()
+                .ignore_then(expr.clone().separated_by(just(',')).collect::<Vec<_>>())
+                .then_ignore(just(']'))
+                .map(|v| Rc::new(Expr::Array(v))),
+        ))
+    })
+}
+
+fn block_parser<'src, P>(stmt: P) -> impl Parser<'src, &'src str, Stmt> + Clone
+where
+    P: Parser<'src, &'src str, Stmt> + Clone + 'src,
+{
+    just('{')
+        .padded()
+        .ignore_then(stmt.repeated().collect::<Vec<_>>().map(|stmts| {
+            Stmt::Block(
+                stmts
+                    .into_iter()
+                    .map(|s| {
+                        // let next: Option<Rc<Stmt>> = None;
+                        // (Rc::new(s), next)
+                        Rc::new(s)
+                    })
+                    .collect(),
+            )
+        }))
+        .then_ignore(just('}').padded())
+}
+
+pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
+    recursive(|stmt| {
+        let block = block_parser(stmt.clone());
+
+        choice((
+            exp_parser()
+                .then_ignore(just('=').padded())
+                .then(exp_parser())
+                .then_ignore(just(';').padded())
+                .map(|(lhs, rhs)| Stmt::Assign(lhs, rhs)),
+            exp_parser()
+                .then_ignore(just(';').padded())
+                .map(|e| Stmt::ExprStmt(e)),
+            block.clone(),
+            text::ascii::keyword("if")
+                .padded()
+                .ignore_then(just('(').padded())
+                .ignore_then(exp_parser())
+                .then_ignore(just(')').padded())
+                .then(block.clone())
+                .then(
+                    text::ascii::keyword("else")
+                        .padded()
+                        .ignore_then(block.clone())
+                        .or_not(),
+                )
+                .map(|((cond, t), f)| Stmt::If(cond, Rc::new(t), f.map(Rc::new))),
+            text::ascii::keyword("while")
+                .padded()
+                .ignore_then(just('(').padded())
+                .ignore_then(exp_parser())
+                .then_ignore(just(')').padded())
+                .then(block.clone())
+                .map(|(cond, t)| Stmt::WhileD(cond, Rc::new(t))),
+            text::ascii::keyword("return")
+                .padded()
+                .ignore_then(exp_parser())
+                .then_ignore(just(';').padded())
+                .map(|e| Stmt::Return(e)),
+            typ_parser()
+                .then(ident_parser())
+                .then(just('=').padded().ignore_then(exp_parser()).or_not())
+                .then_ignore(just(';').padded())
+                .map(|((typ, name), init)| {
+                    if let Some(init) = init {
+                        Stmt::DeclD(typ, name, Some(init))
+                    } else {
+                        Stmt::DeclD(typ, name, None)
+                    }
+                }),
+        ))
+    })
+}
+
+pub fn fun_parser<'src, P>(stmt: P) -> impl Parser<'src, &'src str, Fun> + Clone
+where
+    P: Parser<'src, &'src str, Stmt> + Clone + 'src,
+{
     typ_parser()
         .then(ident_parser())
         .then_ignore(just('(').padded())
@@ -70,27 +213,29 @@ pub fn fun_parser<'src>() -> impl Parser<'src, &'src str, Fun> {
                 .collect::<Vec<_>>(),
         )
         .then_ignore(just(')').padded())
-        .then_ignore(just('{').padded())
-        .then(
-            stmt_parser()
-                .repeated()
-                .collect::<Vec<_>>()
-                .map(|b| Stmt::Block(b)),
-        )
-        .then_ignore(just('}').padded())
-        .map(|(((rtype, name), args), body)| Fun {
-            rtype,
+        .then(stmt)
+        .map(|(((typ, name), args), body)| Fun {
+            typ,
             name,
-            args,
-            body,
+            params: Rc::new(ParamList(args)),
+            body: Rc::new(body),
         })
 }
 
 pub fn program_parser<'src>() -> impl Parser<'src, &'src str, Program> {
-    fun_parser()
+    let stmt = stmt_parser();
+
+    fun_parser(stmt)
         .repeated()
-        .collect::<Vec<_>>()
-        .map(|funs| Program { funs })
+        .collect::<Vec<Fun>>()
+        // TODO: Fix this
+        .map(|funs| {
+            let mut prog: BTreeMap<Name, Fun> = BTreeMap::new();
+            for f in funs {
+                prog.insert(f.name.clone(), f);
+            }
+            Program { funs: prog }
+        })
 }
 
 pub fn parse(filename: &str) {
@@ -115,7 +260,7 @@ mod tests {
         stmt_parser().parse(stmt).into_result().map_err(|_| ())
     }
 
-    fn exp_test(exp: &str) -> Result<Expr, ()> {
+    fn exp_test(exp: &str) -> Result<Rc<Expr>, ()> {
         exp_parser().parse(exp).into_result().map_err(|_| ())
     }
 
@@ -133,10 +278,13 @@ mod tests {
     fn function_call_two_arg() {
         assert_eq!(
             exp_test("f(1,3)"),
-            Ok(Expr::Call(
+            Ok(Rc::new(Expr::CallName( 
                 Name("f".to_string()),
-                vec![Expr::Val(Value::IntV(1)), Expr::Val(Value::IntV(3))]
-            ))
+                Arguments(vec![
+                    Rc::new(Expr::Val(Rc::new(Value::IntV(1)))),
+                    Rc::new(Expr::Val(Rc::new(Value::IntV(3))))
+                ])
+            )))
         )
     }
 
@@ -148,33 +296,33 @@ mod tests {
     #[test]
     fn assignment() {
         if let Ok(Stmt::Assign(lhs, rhs)) = stmt_test("x = 3;") {
-            assert_eq!(lhs, Expr::Var(Name("x".to_string())));
-            assert_eq!(rhs, Expr::Val(Value::IntV(3)));
+            assert_eq!(lhs, Rc::new(Expr::Var(Name("x".to_string()))));
+            assert_eq!(rhs, Rc::new(Expr::Val(Rc::new(Value::IntV(3)))));
         }
     }
 
     #[test]
     fn identifier() {
-        assert_eq!(exp_test("x"), Ok(Expr::Var(Name("x".to_string()))))
+        assert_eq!(exp_test("x"), Ok(Rc::new(Expr::Var(Name("x".to_string())))))
     }
 
     #[test]
     fn number() {
-        assert_eq!(exp_test("3"), Ok(Expr::Val(Value::IntV(3))))
+        assert_eq!(exp_test("3"), Ok(Rc::new(Expr::Val(Rc::new(Value::IntV(3))))))
     }
 
     #[test]
     fn one_fun() {
-        assert!(program_test("void test() {}").is_ok())
+        assert!(program_test("unit test() {}").is_ok())
     }
 
     #[test]
     fn one_fun_extra_char() {
-        assert!(program_test("void test() {}}").is_err())
+        assert!(program_test("unit test() {}}").is_err())
     }
 
     #[test]
     fn one_fun_missing_char() {
-        assert!(program_test("void test() {").is_err())
+        assert!(program_test("unit test() {").is_err())
     }
 }
