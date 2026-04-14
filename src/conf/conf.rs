@@ -308,7 +308,7 @@ impl Config {
                     },
                 },
                 Val(v) => self.invoke_kont(v.clone(), handler),
-                CallName(name,_) => panic!("CallName expression encountered {name}"),
+                CallName(name,_) => todo!("CallName expression encountered: '{name}'"),
                 Neg(_) => todo!(), // ! Will get desugared to 0 - val
                 Index(_, _) => todo!(),
             },
