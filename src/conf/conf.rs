@@ -118,8 +118,8 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    Assign(lval, rval) => Self {
-                        c: AstExpr(rval.clone()),
+                    Assign(lval, expr) => Self {
+                        c: AstExpr(expr.clone()),
                         e: self.e.clone(),
                         s: self.s.clone(),
                         k: Rc::new(AssignK(
@@ -218,8 +218,8 @@ impl Config {
                         },
                         k => panic!("Found some other Kont : {k:?}"),
                     },
-                    WhileD(_, _) => panic!("WhileD found in "), // ! Will be removed later
-                    ForD(_, _, _, _) => todo!() // ! Will be removed later
+                    WhileD(_, _) => panic!("WhileD found in Control"), // ! Will be removed later
+                    ForD(_, _, _, _) => panic!("ForD found in Control") // ! Will be removed later
                 }
             }
             AstExpr(e) => match e.as_ref() {
@@ -308,11 +308,10 @@ impl Config {
                     },
                 },
                 Val(v) => self.invoke_kont(v.clone(), handler),
-                CallName(name,_) => todo!("CallName expression encountered: '{name}'"),
+                CallName(name,_) => panic!("CallName expression encountered: '{name}'"),
                 Neg(_) => todo!(), // ! Will get desugared to 0 - val
                 Index(_, _) => todo!(),
             },
-            Addr(_) => todo!(), // ? When?
         }
     }
     fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
@@ -376,28 +375,16 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            AssignK(lval, succ, k) => { // TODO Redo this 
-                let addr: &Address = match lval.as_ref() {
-                    Var(n) => {
-                        if let Some(addr) = self.e.0.get(n) {
-                            addr
-                        } else {
-                            panic!()
-                        }
-                    }
-                    _ => todo!(), // TODO Array indexing
-                };
-                Self {
-                    c: AstStmt(succ.clone()),
-                    e: self.e.clone(),
-                    s: {
-                        let mut new_store = (*self.s).clone();
-                        new_store.insert(addr.clone(), v1.clone());
-                        Rc::new(new_store)
-                    },
-                    k: k.clone(),
-                }
-            }
+            AssignK(lval, succ, k) => Self { 
+                c: AstExpr(lval.clone()),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: Rc::new(LvalK(
+                    v1.clone(),
+                    succ.clone(),
+                    k.clone(),
+                )),
+            },
             BlocK(env, succ, k) => Self {
                 c: AstStmt(succ.clone()),
                 e: env.clone(),
@@ -451,8 +438,21 @@ impl Config {
                 },
                 _ => panic!("Non-Boolean found in condition")
             },
+            LvalK(val, succ, k) => Self {
+                c: AstStmt(succ.clone()),
+                e: self.e.clone(),
+                s: {
+                    if let Value::AddrV(addr) = v1.as_ref() {
+                        let mut new_store = (*self.s).clone();
+                        new_store.insert(addr.clone(), val.clone());
+                        Rc::new(new_store)
+                    } else {
+                        panic!("Encountered a non-address")
+                    }},
+                k: k.clone(),
+            },
             FunK(_, _) => todo!(),
-            IdK(_,_ ,_ ) => todo!(),
+            IdK(_,_ ,_ ) => todo!(), // * Going away
             Mt => panic!("Exited with code {v1}"),
         }
     }

@@ -15,5 +15,6 @@ pub enum Kont {
     BlocK(Rc<Env>, Rc<Stmt>, Rc<Kont>), // ! I would like to rename this
     AssignK(Rc<Expr>, Rc<Stmt>, Rc<Kont>),
     WhileK(Rc<Env>, Rc<Expr>, Rc<Stmt>, Rc<Stmt>, Rc<Kont>),
-    IdK(Rc<Expr>, Rc<Stmt>, Rc<Kont>),
+    IdK(Rc<Expr>, Rc<Stmt>, Rc<Kont>), // ! Get rid of this
+    LvalK(Rc<Value>, Rc<Stmt>, Rc<Kont>)
 }

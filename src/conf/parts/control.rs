@@ -7,7 +7,6 @@ use std::fmt::{Display, Formatter, Error};
 pub enum Control {
     AstExpr(Rc<Expr>),
     AstStmt(Rc<Stmt>),
-    Addr(Address),
 }
 
 impl Display for Control {
@@ -15,7 +14,6 @@ impl Display for Control {
         match self {
             Control::AstExpr(expr) => write!(f, "{}", expr),
             Control::AstStmt(stmt) => write!(f, "{}", stmt),
-            Control::Addr(_) => todo!(),
         }
     }
 }
