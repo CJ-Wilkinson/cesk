@@ -28,3 +28,7 @@ target
 src/out/
 
 tags
+
+
+# Python artifacts
+__pycache__
