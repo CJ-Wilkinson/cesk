@@ -73,6 +73,18 @@ impl ProgramHandler {
         /*
         Get the function given
         */
-        todo!()
+        if let Some(fun) = self.program.funs.get(fun_name) {
+            Some(Rc::new(fun.clone()))
+        } else { None }
+    }
+}
+
+#[cfg(test)]
+mod Test {
+    use super::*;
+
+    #[test]
+    fn test_fun_lookup() {
+        let ph = ProgramHandler::new();
     }
 }

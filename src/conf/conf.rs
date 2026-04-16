@@ -90,30 +90,17 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    DeclD(_, lval, expr) => Self { // ! Get rid of
-                        c: match expr {
-                            Some(expr) => AstExpr(expr.clone()),
-                            None => AstExpr(Rc::new(Val(Rc::new(UnitV)))),
-                        },
-                        e: self.e.clone(),
-                        s: self.s.clone(),
-                        k: Rc::new(DeclK(
-                            lval.clone(), // TODO should be copy?
-                            handler.successor_lookup(s.clone()),
-                            self.k.clone(),
-                        )),
-                    },
-                    Decl(lval) => Self {
+                    Decl(id) => Self {
                         /* Introduce variable into environment */
                         c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
                         e: {
                             let mut new_env = (*self.e).clone();
-                            new_env.0.insert(lval.clone(), handler.get_address());
+                            new_env.0.insert(id.clone(), handler.get_address());
                             Rc::new(new_env)
                         },
                         s: self.s.clone(),
-                        k: Rc::new(DeclK(
-                            lval.clone(),
+                        k: Rc::new(AssignK(
+                            Rc::new(Var(id.clone())),
                             handler.successor_lookup(s.clone()),
                             self.k.clone(),
                         )),
@@ -129,7 +116,7 @@ impl Config {
                         )),
                     },
                     Return(expr) => match self.k.as_ref() {
-                        BlocK(_, _, k) => Self {
+                        BlockK(_, _, k) => Self {
                             c: AstStmt(s.clone()),
                             e: self.e.clone(),
                             s: self.s.clone(),
@@ -163,7 +150,7 @@ impl Config {
                             c: AstStmt(stmts.get(0).unwrap().clone()), // TODO unwrap
                             e: self.e.clone(),
                             s: self.s.clone(),
-                            k: Rc::new(BlocK(
+                            k: Rc::new(BlockK(
                                 self.e.clone(),
                                 handler.successor_lookup(s.clone()),
                                 self.k.clone(),
@@ -183,7 +170,7 @@ impl Config {
                             s: self.s.clone(),
                             k: k.clone(),
                         },
-                        BlocK(env, succ, k ) => Self {
+                        BlockK(env, succ, k ) => Self {
                             c: AstStmt(s.clone()),
                             e: env.clone(),
                             s: self.s.clone(),
@@ -210,7 +197,7 @@ impl Config {
                             s: self.s.clone(),
                             k: self.k.clone(),
                         },
-                        BlocK(env,_,k) => Self {
+                        BlockK(env,_,k) => Self {
                             c: AstStmt(s.clone()),
                             e: env.clone(),
                             s: self.s.clone(),
@@ -218,32 +205,22 @@ impl Config {
                         },
                         k => panic!("Found some other Kont : {k:?}"),
                     },
-                    WhileD(_, _) => panic!("WhileD found in Control"), // ! Will be removed later
-                    ForD(_, _, _, _) => panic!("ForD found in Control") // ! Will be removed later
+                    DeclD(_, _, _) => unreachable!("Found DeclD in Control"),
+                    WhileD(_, _) => unreachable!("Found WhileD in Control"),
+                    ForD(_, _, _, _) => unreachable!("Found ForD in Control")
                 }
             }
             AstExpr(e) => match e.as_ref() {
-                BinaryOp(l, op, r) => {
-                    if let (Val(l), Val(r)) = (l.as_ref(), r.as_ref()) {
-                        Self {
-                            c: AstExpr(Rc::new(Val(Rc::new(op.call(l, r))))),
-                            e: self.e.clone(),
-                            s: self.s.clone(),
-                            k: self.k.clone()
-                        }
-                    } else {
-                        Self {
+                BinaryOp(l, op, r) => Self {
                             c: AstExpr(l.clone()),
                             e: self.e.clone(),
                             s: self.s.clone(),
-                            k: Rc::new(OpK(
+                            k: Rc::new(OpLK(
                                 *op,
                                 r.clone(),
                                 self.k.clone()
                             )),
-                        }
-                    }
-                }
+                },
                 Array(exprs) => {
                     // Get the first address
                     let addr = handler.get_address();
@@ -275,14 +252,23 @@ impl Config {
                         k: self.k.clone(),
                     }
                 }
-                Var(name) => match self.e.get(name) {
+                Var(id) => match self.e.get(id) {
                     Some(addr) => Self {
                         c: AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
                         e: self.e.clone(),
                         s: self.s.clone(),
                         k: self.k.clone(),
                     },
-                    None => panic!("Undefined variable: {name}"),
+                    None => panic!("Undefined variable: {id}"),
+                },
+                Index(id, expr) => Self {
+                    c: AstExpr(expr.clone()),
+                    e: self.e.clone(),
+                    s: self.s.clone(),
+                    k: Rc::new(IndexK(
+                        Rc::new(id.clone()),
+                        self.k.clone()
+                    ))
                 },
                 CallRef(fun, args) => match args.slice_ref() { 
                     [first, rest @ ..] => Self {
@@ -308,34 +294,28 @@ impl Config {
                     },
                 },
                 Val(v) => self.invoke_kont(v.clone(), handler),
-                CallName(name,_) => panic!("CallName expression encountered: '{name}'"),
-                Neg(_) => todo!(), // ! Will get desugared to 0 - val
-                Index(_, _) => todo!(),
+                CallName(name,_) => unreachable!("CallName expression encountered: '{name}'"),
+                Neg(_) => todo!(),
             },
         }
     }
     fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
         match self.k.as_ref() {
-            OpK(op, expr, k) => {
-                // Is the expression a value?
-                match expr.as_ref() {
-                    Val(v2) => Self {
-                        c: AstExpr(Rc::new(Val(Rc::new(op.call(v2, &v1))))),
-                        e: self.e.clone(),
-                        s: self.s.clone(),
-                        k: k.clone(),
-                    },
-                    _ => Self {
-                        c: AstExpr(expr.clone()),
-                        e: self.e.clone(),
-                        s: self.s.clone(),
-                        k: Rc::new(OpK(
-                            *op,
-                            Rc::new(Expr::Val(v1.clone())),
-                            k.clone(),
-                        )),
-                    },
-                }
+            OpLK(op, expr, k) => Self {
+                c: AstExpr(expr.clone()),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: Rc::new(OpRK(
+                    *op,
+                    v1.clone(),
+                    k.clone(),
+                )),
+            },
+            OpRK(op, v2, k) => Self {
+                c: AstExpr(Rc::new(Val(Rc::new(op.call(v2, &v1))))),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: k.clone(),
             },
             IfK(true_b, false_b, succ, k) => Self {
                 c: AstStmt((match v1.as_ref() {
@@ -350,25 +330,6 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            DeclK(lval, succ, k) => {
-                // Get new address
-                let addr = handler.get_address();
-
-                Self {
-                    c: AstStmt(succ.clone()),
-                    e: {
-                        let mut new_env = (*self.e).clone();
-                        new_env.0.insert(lval.clone(), addr.clone());
-                        Rc::new(new_env)
-                    },
-                    s: {
-                        let mut new_store = (*self.s).clone();
-                        new_store.insert(addr.clone(), v1.clone());
-                        Rc::new(new_store)
-                    },
-                    k: k.clone(),
-                }
-            }
             ReturnK(env, k) => Self {
                 c: AstExpr(Rc::new(Expr::Val(v1.clone()))),
                 e: env.clone(),
@@ -385,7 +346,7 @@ impl Config {
                     k.clone(),
                 )),
             },
-            BlocK(env, succ, k) => Self {
+            BlockK(env, succ, k) => Self {
                 c: AstStmt(succ.clone()),
                 e: env.clone(),
                 s: self.s.clone(),
@@ -451,8 +412,16 @@ impl Config {
                     }},
                 k: k.clone(),
             },
-            FunK(_, _) => todo!(),
-            IdK(_,_ ,_ ) => todo!(), // * Going away
+            IndexK(id, k) => match self.e.get(id.as_ref()) {
+                Some(addr) => Self {
+                    c: AstExpr(Rc::new(Val(Rc::new(AddrV(addr.clone()))))),
+                    e: self.e.clone(),
+                    s: self.s.clone(),
+                    k: k.clone(),
+                },
+                None => panic!("Undefined variable: {id}"),
+            },
+            FunK(_, _) => unreachable!("Expected return, found value"),
             Mt => panic!("Exited with code {v1}"),
         }
     }
