@@ -133,13 +133,13 @@ impl Traverse for Stmt {
         v.previsit_stmt(self);
 
         match self {
-            DeclD(type_, name, expr) => {
-                type_.traverse(v);
-                name.traverse(v);
-                if let Some(expr) = expr {
-                    expr.traverse(v);
-                }
-            }
+            //DeclD(type_, name, expr) => {
+                //type_.traverse(v);
+                //name.traverse(v);
+                //if let Some(expr) = expr {
+                    //expr.traverse(v);
+                //}
+            //}
             ForD(init, condition, update, body) => {
                 if let Some(init) = init {
                     init.traverse(v);
@@ -151,7 +151,7 @@ impl Traverse for Stmt {
                     update.traverse(v);
                 }
             }
-            WhileD(condition, body) => {
+            While(condition, body) => {
                 condition.traverse(v);
                 body.traverse(v);
             }

@@ -205,8 +205,6 @@ impl Config {
                         },
                         k => panic!("Found some other Kont : {k:?}"),
                     },
-                    DeclD(_, _, _) => unreachable!("Found DeclD in Control"),
-                    WhileD(_, _) => unreachable!("Found WhileD in Control"),
                     ForD(_, _, _, _) => unreachable!("Found ForD in Control")
                 }
             }
@@ -300,7 +298,29 @@ impl Config {
         }
     }
     fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
+        if let Value{Address{a}} = v1.as_ref() {
+            return Self {
+                c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.")))),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: self.k.clone(),
+            };
+        }
         match self.k.as_ref() {
+            // needs to be above AddressLookup yea sure perfect ok I just love this
+            LvalK(val, succ, k) => Self {
+                c: AstStmt(succ.clone()),
+                e: self.e.clone(),
+                s: {
+                    if let Value::AddrV(addr) = v1.as_ref() {
+                        let mut new_store = (*self.s).clone();
+                        new_store.insert(addr.clone(), val.clone());
+                        Rc::new(new_store)
+                    } else {
+                        panic!("Encountered a non-address")
+                    }},
+                k: k.clone(),
+            },
             OpLK(op, expr, k) => Self {
                 c: AstExpr(expr.clone()),
                 e: self.e.clone(),
@@ -398,19 +418,6 @@ impl Config {
                     k: k.clone(),
                 },
                 _ => panic!("Non-Boolean found in condition")
-            },
-            LvalK(val, succ, k) => Self {
-                c: AstStmt(succ.clone()),
-                e: self.e.clone(),
-                s: {
-                    if let Value::AddrV(addr) = v1.as_ref() {
-                        let mut new_store = (*self.s).clone();
-                        new_store.insert(addr.clone(), val.clone());
-                        Rc::new(new_store)
-                    } else {
-                        panic!("Encountered a non-address")
-                    }},
-                k: k.clone(),
             },
             IndexK(id, k) => match self.e.get(id.as_ref()) {
                 Some(addr) => Self {
