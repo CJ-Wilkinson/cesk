@@ -32,3 +32,5 @@ tags
 
 # Python artifacts
 __pycache__
+
+.vscode
