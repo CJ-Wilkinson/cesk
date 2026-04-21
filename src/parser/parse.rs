@@ -194,7 +194,7 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .ignore_then(exp_parser())
                 .then_ignore(just(')').padded())
                 .then(block.clone())
-                .map(|(cond, t)| Stmt::WhileD(cond, Rc::new(t))),
+                .map(|(cond, t)| Stmt::While(cond, Rc::new(t))),
             text::ascii::keyword("return")
                 .padded()
                 .ignore_then(exp_parser())
@@ -206,9 +206,10 @@ pub fn stmt_parser<'src>() -> impl Parser<'src, &'src str, Stmt> + Clone {
                 .then_ignore(just(';').padded())
                 .map(|((typ, name), init)| {
                     if let Some(init) = init {
-                        Stmt::DeclD(typ, name, Some(init))
+                        panic!("old decld");
+                        //Stmt::DeclD(typ, name, Some(init))
                     } else {
-                        Stmt::DeclD(typ, name, None)
+                        Stmt::Decl(name)
                     }
                 }),
         ))

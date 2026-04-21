@@ -123,17 +123,12 @@ pub enum Stmt {
     Declaration that will be desugared
     DeclD ::= <Type> <Name> ('=' <Expr>)? ';'
     */
-    DeclD(Type, Name, Option<Rc<Expr>>),
+    //DeclD(Type, Name, Option<Rc<Expr>>),
     /*
     For loop that will be desugared.
     If ::= 'for' '(' <Expr> ';' <Expr> ';' <Expr> ')' <Stmt>
     */
     ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
-    /*
-    While ::= 'while' '(' <Expr> ')' <Stmt>
-    */
-    WhileD(Rc<Expr>, Rc<Stmt>), // ! Get rid of this
-
     // Rules used in CESK
     /*
     The <If> statement will contain a conditional <Expr>, a true

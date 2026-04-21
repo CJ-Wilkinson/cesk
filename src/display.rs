@@ -84,10 +84,10 @@ impl Display for Stmt {
             },
             Self::Assign(var, val) => write!(f, "{} = {};", var, val),
             Self::ExprStmt(ex) => write!(f, "{};", ex),
-            Self::DeclD(t, n, val) => match val {
-                Some(v) => write!(f, "{} {} = {};", t, n, v),
-                None => write!(f, "{} {};", t, n),
-            },
+            //Self::DeclD(t, n, val) => match val {
+                //Some(v) => write!(f, "{} {} = {};", t, n, v),
+                //None => write!(f, "{} {};", t, n),
+            //},
             Self::Decl(n) => {
                 write!(f, "{}", n.0)
             }

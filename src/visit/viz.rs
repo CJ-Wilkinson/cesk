@@ -129,9 +129,7 @@ impl Visitor for GraphVizVisitor {
 
     fn previsit_stmt(&mut self, node: &Stmt) {
         let label = match node {
-            Stmt::DeclD(..) => "Stmt::DeclD",
             Stmt::ForD(..) => "Stmt::ForD",
-            Stmt::WhileD(..) => "Stmt::WhileD", // ! No longer used
             Stmt::If(..) => "Stmt::If",
             Stmt::Assign(..) => "Stmt::Assign",
             Stmt::ExprStmt(..) => "Stmt::ExprStmt",
