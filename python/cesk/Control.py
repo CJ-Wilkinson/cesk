@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Literal, Optional
 
-from Address import Address
-from AstNode import Expr, Stmt, AstNode
+from cesk.Address import Address
+from cesk.AstNode import Expr, Stmt, AstNode
 
 
 @dataclass

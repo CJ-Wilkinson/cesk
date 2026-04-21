@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from Address import Address
+from cesk.Address import Address
 import json
 
 @dataclass

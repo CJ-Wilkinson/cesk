@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from Address import Address
-from Value import Value
+from cesk.Address import Address
+from cesk.Value import Value
 
 @dataclass
 class Store:

@@ -1,4 +1,4 @@
-from Config import Config
+from cesk.Config import Config
 
 class Rule:
     conf_in: Config

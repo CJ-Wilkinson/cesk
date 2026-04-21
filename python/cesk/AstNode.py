@@ -1,4 +1,4 @@
-from Value import Value
+from cesk.Value import Value
 
 
 class AstNode:
