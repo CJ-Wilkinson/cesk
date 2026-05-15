@@ -32,7 +32,7 @@ pub struct Config {
 
 impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "<{}, {:?}, {}, {:?}>", self.c, self.e, self.s, self.k)
+        writeln!(f, "<{}, {:?}, {:?}, {:?}>", self.c, self.e, self.s, self.k)
     }
 }
 
@@ -231,7 +231,7 @@ impl Config {
                     match exprs.first() {
                         Some(expr) => {
                             if let Val(v) = expr.as_ref() {
-                                new_store.insert(addr, v.clone())
+                                new_store.insert(addr, v.clone());
                             }
                         }
                         None => (),
@@ -300,7 +300,7 @@ impl Config {
     fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
         if let Value::AddrV(a) = v1.as_ref() {
             return Self {
-                c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.")))),
+                c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.").clone()))),
                 e: self.e.clone(),
                 s: self.s.clone(),
                 k: self.k.clone(),
