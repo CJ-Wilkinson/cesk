@@ -97,11 +97,7 @@ impl Config {
                         c: AstStmt(handler.successor_lookup(s.clone())),
                         e: {
                             let mut new_env = (*self.e).clone();
-<<<<<<< HEAD
-                            new_env.insert(id.clone(), handler.get_address());
-=======
                             new_env.insert(id.clone(), addr.clone());
->>>>>>> 307ca3e (Additional changes)
                             Rc::new(new_env)
                         },
                         s: {
@@ -320,17 +316,6 @@ impl Config {
         }
     }
     fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
-<<<<<<< HEAD
-        if let Value::AddrV(a) = v1.as_ref() {
-            return Self {
-                c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.").clone()))),
-                e: self.e.clone(),
-                s: self.s.clone(),
-                k: self.k.clone(),
-            };
-        }
-=======
->>>>>>> 307ca3e (Additional changes)
         match self.k.as_ref() {
             // needs to be above AddressLookup yea sure perfect ok I just love this
             LvalK(val, succ, k) => Self {
