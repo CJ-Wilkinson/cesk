@@ -1,22 +1,45 @@
 # cesk
 
-## Questions
-- Control can either be a reference to the ast or have ownership of some value or expression even?
-- Configuration now has ownership of control?
-- Swapped Addresses to int, how should an address be represented? (int, enum, struct)?
-- Figure out the reference set up for configuration's members.
-- Do we enforce curly braces for if blocks? all blocks?
-- How does shadowing work?
-- Responsibilities of successor function?
-- Does break/continue utilize the successor function for its purpose?
+## TODO:
+- remove forD
+- write actual semantic rules
+ 
 
-## New Questions/Topics
+DOCUMENTATION:
+- write explicit desugaring rules for later implementation
+  - not a whole semantic pass, but maybe we just do it at runtime.
 
-- Are we doing semantic analysis?
-  - Type checking arguments.
-  - Type checking in general.
-  - Number of arguments vs parameters.
-- Do we need Expression Statements?
-- Is there a reason for name (in ast)?
-  - It's just a string reference.
-- We'd like to discuss changing languages?
+
+
+- Desugaring Rules
+  - for -> while
+  - While -> add continue at the end
+  - explicit return inserted into every block.
+  - declare -> a-normal form = (decl + assign) 
+  - insert return 0 in main if there is no main return
+  - `unit` return insert only for all functions
+
+- Meta functions def - Kind of has dependency on the parser probably
+
+## Assignments
+
+### Santiago
+- <= >= == etc do not work.
+
+### Todd
+- Implement unary rules
+
+### Chance
+- CallName -> CallRef
+- Type checking
+
+### Ava
+- change all of the Names to Ids
+- make sure Lvalue is in the right places
+- visualization of the Rules
+
+### Drew
+- fix parser
+- parser rules
+- named (explicit) fields on every node in the AST
+- unary op
