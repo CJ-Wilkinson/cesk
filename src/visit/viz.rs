@@ -86,7 +86,7 @@ impl Visitor for GraphVizVisitor {
         self.enter_node("Program");
     }
     fn previsit_name(&mut self, node: &Name) {
-        self.enter_node(format!("Name({})", node.0));
+        self.enter_node(format!("Name({})", node));
     }
 
     fn previsit_value(&mut self, node: &Value) {

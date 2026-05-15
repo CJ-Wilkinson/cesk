@@ -32,7 +32,7 @@ pub fn typ_parser<'src>() -> impl Parser<'src, &'src str, Type> + Clone {
 pub fn ident_parser<'src>() -> impl Parser<'src, &'src str, Name> + Clone {
     text::ascii::ident()
         .padded()
-        .map(|name: &'src str| Name(name.to_string()))
+        .map(|name: &'src str| name.to_string())
 }
 
 pub fn add_sub_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {

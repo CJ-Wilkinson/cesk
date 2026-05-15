@@ -7,8 +7,9 @@ use crate::conf::parts::address::Address;
 /*
 Name ::= [a-zA-z][a-zA-Z0-9_]*
 */
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Name(pub String);
+// #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+// pub struct Name(pub String);
+pub type Name = String;
 
 /*
 Fun ::= int-lit | true | false | '()'
@@ -218,7 +219,7 @@ impl Program {
         }
     }
     pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
-        match self.funs.get(&Name("main".to_string())) {
+        match self.funs.get("main") {
             Some(fun) => Ok(fun.body.clone()),
             None => Err("failed to get entry point"),
         }

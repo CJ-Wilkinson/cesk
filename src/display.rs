@@ -22,11 +22,11 @@ impl Display for Value {
     }
 }
 
-impl Display for Name {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{}", self.0)
-    }
-}
+// impl Display for Name {
+//     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+//         write!(f, "{}", self.0)
+//     }
+// }
 
 impl Display for Operation {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -89,7 +89,7 @@ impl Display for Stmt {
                 //None => write!(f, "{} {};", t, n),
             //},
             Self::Decl(n) => {
-                write!(f, "{}", n.0)
+                write!(f, "{}", n)
             }
             Self::Return(ex) => {
                 write!(f, "return {}", ex)
