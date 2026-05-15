@@ -32,7 +32,7 @@ pub struct Config {
 
 impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "<{}, {}, {}, {:?}>", self.c, self.e, self.s, self.k)
+        writeln!(f, "<{}, {:?}, {}, {:?}>", self.c, self.e, self.s, self.k)
     }
 }
 
@@ -95,7 +95,7 @@ impl Config {
                         c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
                         e: {
                             let mut new_env = (*self.e).clone();
-                            new_env.0.insert(id.clone(), handler.get_address());
+                            new_env.insert(id.clone(), handler.get_address());
                             Rc::new(new_env)
                         },
                         s: self.s.clone(),
