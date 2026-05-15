@@ -298,7 +298,7 @@ impl Config {
         }
     }
     fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
-        if let Value{Address{a}} = v1.as_ref() {
+        if let Value::AddrV(a) = v1.as_ref() {
             return Self {
                 c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.")))),
                 e: self.e.clone(),
