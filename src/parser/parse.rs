@@ -244,7 +244,6 @@ pub fn program_parser<'src>() -> impl Parser<'src, &'src str, Program> {
     fun_parser(stmt)
         .repeated()
         .collect::<Vec<Fun>>()
-        // TODO: Fix this
         .map(|funs| {
             let mut prog: BTreeMap<Name, Fun> = BTreeMap::new();
             for f in funs {

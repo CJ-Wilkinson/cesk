@@ -90,21 +90,27 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    Decl(id) => Self {
+                    Decl(id) => {
+                        let addr = handler.get_address();
+                        Self {
                         /* Introduce variable into environment */
-                        c: AstExpr(Rc::new(Val(Rc::new(UnitV)))),
+                        c: AstStmt(handler.successor_lookup(s.clone())),
                         e: {
                             let mut new_env = (*self.e).clone();
+<<<<<<< HEAD
                             new_env.insert(id.clone(), handler.get_address());
+=======
+                            new_env.insert(id.clone(), addr.clone());
+>>>>>>> 307ca3e (Additional changes)
                             Rc::new(new_env)
                         },
-                        s: self.s.clone(),
-                        k: Rc::new(AssignK(
-                            Rc::new(Var(id.clone())),
-                            handler.successor_lookup(s.clone()),
-                            self.k.clone(),
-                        )),
-                    },
+                        s: {
+                            let mut new_store = (*self.s).clone();
+                            new_store.insert(addr, Rc::new(Value::UnitV));
+                            Rc::new(new_store)
+                        },
+                        k: self.k.clone(),
+                    }},
                     Assign(lval, expr) => Self {
                         c: AstExpr(expr.clone()),
                         e: self.e.clone(),
@@ -291,13 +297,30 @@ impl Config {
                             )),
                     },
                 },
-                Val(v) => self.invoke_kont(v.clone(), handler),
+                Val(v) => {
+                    if let Value::AddrV(a) = v.as_ref() {
+                        if let LvalK(_, _, _) = self.k.as_ref() {
+                            self.invoke_kont(v.clone(), handler)
+                        } else {
+                            Self {
+                                c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.")))),
+                                e: self.e.clone(),
+                                s: self.s.clone(),
+                                k: self.k.clone(),
+                            }
+                        }
+                    } else {
+                        self.invoke_kont(v.clone(), handler)
+                    }
+                },
+                
                 CallName(name,_) => unreachable!("CallName expression encountered: '{name}'"),
                 Neg(_) => todo!(),
             },
         }
     }
     fn invoke_kont(&self, v1: Rc<Value>, handler: &mut ProgramHandler) -> Config {
+<<<<<<< HEAD
         if let Value::AddrV(a) = v1.as_ref() {
             return Self {
                 c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.").clone()))),
@@ -306,6 +329,8 @@ impl Config {
                 k: self.k.clone(),
             };
         }
+=======
+>>>>>>> 307ca3e (Additional changes)
         match self.k.as_ref() {
             // needs to be above AddressLookup yea sure perfect ok I just love this
             LvalK(val, succ, k) => Self {
