@@ -56,12 +56,12 @@ pub fn arith_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + C
 
 pub fn compare_binop_parser<'src>() -> impl Parser<'src, &'src str, Operation> + Clone {
     choice((
-        just('<').padded().to(Operation::Lt),
-        just('>').padded().to(Operation::Gt),
         text::ascii::keyword("<=").padded().to(Operation::Lte),
         text::ascii::keyword(">=").padded().to(Operation::Gte),
         text::ascii::keyword("==").padded().to(Operation::Eq),
         text::ascii::keyword("!=").padded().to(Operation::Neq),
+        just('<').padded().to(Operation::Lt),
+        just('>').padded().to(Operation::Gt),
     ))
 }
 
