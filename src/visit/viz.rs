@@ -102,11 +102,15 @@ impl Visitor for GraphVizVisitor {
     fn previsit_operation(&mut self, node: &Operation) {
         self.enter_node(format!("Operation::{node:?}"))
     }
+    fn previsit_uoperation(&mut self, node: &UOperation) {
+        self.enter_node(format!("UOperation::{node:?}"))
+    }
     fn previsit_expr(&mut self, node: &Expr) {
         let label = match node {
             Expr::Val(..) => "Expr::Literal".to_string(),
             Expr::Neg(..) => "Expr::Neg".to_string(),
             Expr::BinaryOp(_, op, ..) => format!("Expr::Binary({op:?})"),
+            Expr::UnaryOp(op, _) => format!("Expr::Unary({op:?})"),
             Expr::Var(..) => "Expr::Identifier".to_string(),
             Expr::CallName(..) => "Expr::CallName".to_string(),
             Expr::CallRef(..) => "Expr::CallRef".to_string(),
@@ -159,6 +163,9 @@ impl Visitor for GraphVizVisitor {
         self.exit_node();
     }
     fn postvisit_operation(&mut self, _node: &Operation) {
+        self.exit_node();
+    }
+    fn postvisit_uoperation(&mut self, _node: &UOperation) {
         self.exit_node();
     }
     fn postvisit_expr(&mut self, _node: &Expr) {

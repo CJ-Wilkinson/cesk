@@ -33,6 +33,7 @@ pub trait Visitor {
     fn previsit_name(&mut self, _node: &Name) {}
     fn previsit_value(&mut self, _node: &Value) {}
     fn previsit_operation(&mut self, _node: &Operation) {}
+    fn previsit_uoperation(&mut self, _node: &UOperation) {}
     fn previsit_expr(&mut self, _node: &Expr) {}
     fn previsit_type(&mut self, _node: &Type) {}
     fn previsit_stmt(&mut self, _node: &Stmt) {}
@@ -44,6 +45,7 @@ pub trait Visitor {
     fn postvisit_name(&mut self, _node: &Name) {}
     fn postvisit_value(&mut self, _node: &Value) {}
     fn postvisit_operation(&mut self, _node: &Operation) {}
+    fn postvisit_uoperation(&mut self, _node: &UOperation) {}
     fn postvisit_expr(&mut self, _node: &Expr) {}
     fn postvisit_type(&mut self, _node: &Type) {}
     fn postvisit_stmt(&mut self, _node: &Stmt) {}
@@ -74,6 +76,13 @@ impl Traverse for Operation {
     }
 }
 
+impl Traverse for UOperation {
+    fn traverse<V: Visitor>(&self, v: &mut V) {
+        v.previsit_uoperation(self);
+        v.postvisit_uoperation(self);
+    }
+}
+
 impl Traverse for Expr {
     fn traverse<V: Visitor>(&self, v: &mut V) {
         use Expr::*;
@@ -85,6 +94,10 @@ impl Traverse for Expr {
                 lhs.traverse(v);
                 op.traverse(v);
                 rhs.traverse(v);
+            }
+            UnaryOp(op, exp) => {
+                op.traverse(v);
+                exp.traverse(v);
             }
             Var(name) => name.traverse(v),
             CallName(name, args) => {

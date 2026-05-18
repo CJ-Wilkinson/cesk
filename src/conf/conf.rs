@@ -221,6 +221,15 @@ impl Config {
                                 self.k.clone()
                             )),
                 },
+                UnaryOp(op, exp) => Self {
+                    c: AstExpr(exp.clone()),
+                    e: self.e.clone(),
+                    s: self.s.clone(),
+                    k: Rc::new(UOpK(
+                            *op,
+                            self.k.clone()
+                    )),
+                },
                 Array(exprs) => {
                     // Get the first address
                     let addr = handler.get_address();
@@ -299,7 +308,7 @@ impl Config {
                             self.invoke_kont(v.clone(), handler)
                         } else {
                             Self {
-                                c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.")))),
+                                c: AstExpr(Rc::new(Expr::Val(self.s.get(a).expect("Address not found in store.").clone()))),
                                 e: self.e.clone(),
                                 s: self.s.clone(),
                                 k: self.k.clone(),
@@ -346,6 +355,12 @@ impl Config {
                 e: self.e.clone(),
                 s: self.s.clone(),
                 k: k.clone(),
+            },
+            UOpK(op, k) => Self {
+                c: AstExpr(Rc::new(Val(Rc::new(op.call(&v1))))),
+                e: self.e.clone(),
+                s: self.s.clone(),
+                k: k.clone()
             },
             IfK(true_b, false_b, succ, k) => Self {
                 c: AstStmt((match v1.as_ref() {

@@ -68,6 +68,33 @@ impl Operation {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum UOperation {
+    Neg,
+    Not,
+}
+
+impl UOperation {
+    pub fn call(&self, rhs: &Value) -> Value {
+        match self {
+            Self::Neg => {
+                if let Value::IntV(rhs) = rhs {
+                    return Value::IntV(-rhs)
+                } else {
+                    panic!("expected integer value")
+                }
+            },
+            Self::Not => {
+                if let Value::BoolV(rhs) = rhs {
+                    return Value::BoolV(!rhs)
+                } else {
+                    panic!("Expected boolean value")
+                }
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Expr {
     /*
@@ -82,6 +109,9 @@ pub enum Expr {
     Expr ::= <Expr> <Operation> <Expr>
     */
     BinaryOp(Rc<Expr>, Operation, Rc<Expr>),
+
+    UnaryOp(UOperation, Rc<Expr>),
+
     /*
     Expr ::= <Name>
     */

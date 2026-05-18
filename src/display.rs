@@ -1,7 +1,7 @@
 use crate::ast::*;
 use crate::conf::parts::address::Address;
 
-use std::fmt::{Display, Error, Formatter};
+use std::fmt::{Display, Error, Formatter, write};
 
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
@@ -46,6 +46,15 @@ impl Display for Operation {
     }
 }
 
+impl Display for UOperation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Neg => write!(f, "-"),
+            Self::Not => write!(f, "!"),
+        }
+    }
+}
+
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
@@ -57,6 +66,7 @@ impl Display for Expr {
             Self::CallName(n, args ) => write!(f, "{} ({:?})", n, args),
             Self::Array(elems) => write!(f, "[{:?}]", elems),
             Self::Index(n, ex) => write!(f, "{}[{}]", n, ex),
+            Self::UnaryOp(op, ex) => write!(f, "{}{}", op, ex),
             // Self::Deref(ex) => write!(f, "*{}", ex),  // ? Not needed?
             // Self::Ref(n) => write!(f, "&{}", n),
         }

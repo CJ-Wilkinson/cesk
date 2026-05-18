@@ -8,6 +8,7 @@ pub enum Kont {
     ExprStmtK(Rc<Stmt>, Rc<Kont>),
     OpLK(Operation, Rc<Expr>, Rc<Kont>),
     OpRK(Operation, Rc<Value>, Rc<Kont>),
+    UOpK(UOperation, Rc<Kont>),
     IfK(Rc<Stmt>, Option<Rc<Stmt>>, Rc<Stmt>, Rc<Kont>),
     ReturnK(Rc<Env>, Rc<Kont>),
     CallK(Rc<Env>,Rc<Fun>, Rc<ParamList>, Rc<Arguments>, Rc<Kont>),
