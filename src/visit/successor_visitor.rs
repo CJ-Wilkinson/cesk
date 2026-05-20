@@ -28,7 +28,7 @@ impl SuccessorVisitor {
 
 impl Visitor for SuccessorVisitor {
     fn previsit_stmt(&mut self, node: &Stmt) {
-        if let Stmt::Block(stmts) = node {
+        if let Stmt::Block { stmts } = node {
             for (current, next) in stmts.iter().zip(stmts.iter().skip(1)) {
                 self.map.insert(current.clone(), next.clone()); // This is cloning the Rc?
             }

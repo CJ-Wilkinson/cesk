@@ -66,7 +66,7 @@ impl ProgramHandler {
         */
         match self.successor_map.get(&key) {
             Some(stmt) => stmt.clone(),
-            None => Rc::new(Stmt::ExprStmt(Rc::new(Expr::Val(Rc::new(Value::UnitV))))), // TODO: This will be the case that there is not successor
+            None => Rc::new(Stmt::expr_stmt(Rc::new(Expr::val(Rc::new(Value::UnitV))))), // TODO: This will be the case that there is not successor
         }
     }
     pub fn function_lookup(&self, fun_name: &Name) -> Option<Rc<Fun>> {
@@ -75,7 +75,9 @@ impl ProgramHandler {
         */
         if let Some(fun) = self.program.funs.get(fun_name) {
             Some(Rc::new(fun.clone()))
-        } else { None }
+        } else {
+            None
+        }
     }
 }
 
