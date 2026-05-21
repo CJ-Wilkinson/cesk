@@ -88,37 +88,37 @@ impl Traverse for Expr {
         use Expr::*;
         v.previsit_expr(self);
         match self {
-            Val(value) => value.traverse(v),
-            Neg(expr) => expr.traverse(v),
-            BinaryOp(lhs, op, rhs) => {
+            Val { value } => value.traverse(v),
+            //Neg(expr) => expr.traverse(v),
+            BinaryOp { lhs, op, rhs } => {
                 lhs.traverse(v);
                 op.traverse(v);
                 rhs.traverse(v);
             }
-            UnaryOp(op, exp) => {
+            UnaryOp { op, expr } => {
                 op.traverse(v);
-                exp.traverse(v);
-            }
-            Var(name) => name.traverse(v),
-            CallName(name, args) => {
-                name.traverse(v);
-                for arg in args.slice_ref(){
-                    arg.traverse(v);
-                }
-            }
-            CallRef(_fun, args) => {
-                for arg in args.slice_ref(){
-                    arg.traverse(v);
-                }
-            }
-            Array(v_exprs) => {
-                for v_expr in v_exprs {
-                    v_expr.traverse(v)
-                }
-            }
-            Index(name, expr) => {
-                name.traverse(v);
                 expr.traverse(v);
+            }
+            Var { name } => name.traverse(v),
+            CallName { callee, args } => {
+                callee.traverse(v);
+                for arg in args.slice_ref() {
+                    arg.traverse(v);
+                }
+            }
+            CallRef { fun: _, args } => {
+                for arg in args.slice_ref() {
+                    arg.traverse(v);
+                }
+            }
+            Array { elements } => {
+                for elem in elements {
+                    elem.traverse(v)
+                }
+            }
+            Index { array: _, index } => {
+                //name.traverse(v);
+                index.traverse(v);
             } // Deref(expr) => expr.traverse(v),
               // Ref(name) => name.traverse(v),
         }
@@ -147,13 +147,18 @@ impl Traverse for Stmt {
 
         match self {
             //DeclD(type_, name, expr) => {
-                //type_.traverse(v);
-                //name.traverse(v);
-                //if let Some(expr) = expr {
-                    //expr.traverse(v);
-                //}
+            //type_.traverse(v);
+            //name.traverse(v);
+            //if let Some(expr) = expr {
+            //expr.traverse(v);
             //}
-            ForD(init, condition, update, body) => {
+            //}
+            ForD {
+                init,
+                condition,
+                update,
+                body,
+            } => {
                 if let Some(init) = init {
                     init.traverse(v);
                 }
@@ -164,12 +169,16 @@ impl Traverse for Stmt {
                     update.traverse(v);
                 }
             }
-            While(condition, body) => {
+            While { condition, body } => {
                 condition.traverse(v);
                 body.traverse(v);
             }
 
-            If(condition, tb, fb) => {
+            If {
+                condition,
+                then_branch: tb,
+                else_branch: fb,
+            } => {
                 condition.traverse(v);
                 tb.traverse(v);
                 if let Some(fb) = fb {
@@ -177,22 +186,31 @@ impl Traverse for Stmt {
                 }
             }
 
-            Assign(val, expr) => {
+            Assign {
+                lhs: val,
+                rhs: expr,
+            } => {
                 val.traverse(v);
                 expr.traverse(v);
             }
 
-            ExprStmt(expr) => expr.traverse(v),
-            Decl(name) => name.traverse(v),
-            Return(expr) => expr.traverse(v),
-            Block(v_stmts) => {
+            ExprStmt { expr } => expr.traverse(v),
+            Decl { typ, name, expr } => {
+                typ.traverse(v);
+                name.traverse(v);
+                if let Some(expr) = expr {
+                    expr.traverse(v);
+                }
+            }
+            Return { expr } => expr.traverse(v),
+            Block { stmts: v_stmts } => {
                 for stmt in v_stmts.iter() {
                     stmt.traverse(v);
                 }
             }
             Continue => {}
             Break => {}
-            _ => todo!()
+            _ => todo!(),
         }
         v.postvisit_stmt(self);
     }
@@ -201,7 +219,7 @@ impl Traverse for Stmt {
 impl Traverse for Arguments {
     fn traverse<V: Visitor>(&self, v: &mut V) {
         v.previsit_arguments(self);
-        for arg in self.0.iter() {
+        for arg in self.args.iter() {
             arg.traverse(v);
         }
 
@@ -211,8 +229,8 @@ impl Traverse for Arguments {
 impl Traverse for ParamList {
     fn traverse<V: Visitor>(&self, v: &mut V) {
         v.previsit_paramlist(self);
-        for (type_, name) in self.0.iter() {
-            type_.traverse(v);
+        for Param { typ, name } in self.params.iter() {
+            typ.traverse(v);
             name.traverse(v);
         }
 

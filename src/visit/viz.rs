@@ -107,15 +107,15 @@ impl Visitor for GraphVizVisitor {
     }
     fn previsit_expr(&mut self, node: &Expr) {
         let label = match node {
-            Expr::Val(..) => "Expr::Literal".to_string(),
-            Expr::Neg(..) => "Expr::Neg".to_string(),
-            Expr::BinaryOp(_, op, ..) => format!("Expr::Binary({op:?})"),
-            Expr::UnaryOp(op, _) => format!("Expr::Unary({op:?})"),
-            Expr::Var(..) => "Expr::Identifier".to_string(),
-            Expr::CallName(..) => "Expr::CallName".to_string(),
-            Expr::CallRef(..) => "Expr::CallRef".to_string(),
-            Expr::Array(..) => "Expr::Array".to_string(),
-            Expr::Index(..) => "Expr::Index".to_string(),
+            Expr::Val { .. } => "Expr::Literal".to_string(),
+            Expr::BinaryOp { op, .. } => format!("Expr::Binary({op:?})"),
+            Expr::UnaryOp { op, .. } => format!("Expr::Unary({op:?})"),
+            Expr::Var { .. } => "Expr::Identifier".to_string(),
+            Expr::CallName { .. } => "Expr::CallName".to_string(),
+            Expr::CallRef { .. } => "Expr::CallRef".to_string(),
+            Expr::Array { .. } => "Expr::Array".to_string(),
+            Expr::Index { .. } => "Expr::Index".to_string(),
+            //Expr::Neg { .. } => "Expr::Neg".to_string(),
             // Expr::Deref(..) => "Expr::Deref".to_string(),
             // Expr::Ref(..) => "Expr::Ref".to_string(),
         };
@@ -133,16 +133,16 @@ impl Visitor for GraphVizVisitor {
 
     fn previsit_stmt(&mut self, node: &Stmt) {
         let label = match node {
-            Stmt::ForD(..) => "Stmt::ForD",
-            Stmt::If(..) => "Stmt::If",
-            Stmt::Assign(..) => "Stmt::Assign",
-            Stmt::ExprStmt(..) => "Stmt::ExprStmt",
-            Stmt::Decl(_) => "Stmt::Decl",
-            Stmt::Return(_) => "Stmt::Return",
-            Stmt::Block(_) => "Stmt::Block",
+            Stmt::ForD { .. } => "Stmt::ForD",
+            Stmt::If { .. } => "Stmt::If",
+            Stmt::Assign { .. } => "Stmt::Assign",
+            Stmt::ExprStmt { .. } => "Stmt::ExprStmt",
+            Stmt::Decl { .. } => "Stmt::Decl",
+            Stmt::Return { .. } => "Stmt::Return",
+            Stmt::Block { .. } => "Stmt::Block",
             Stmt::Continue => "Stmt::Continue",
             Stmt::Break => "Stmt::Break",
-            Stmt::While(_,_) => "Stmt::While",
+            Stmt::While { .. } => "Stmt::While",
         };
         self.enter_node(label);
     }

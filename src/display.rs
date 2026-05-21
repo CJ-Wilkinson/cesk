@@ -58,15 +58,15 @@ impl Display for UOperation {
 impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
-            Self::Val(v) => write!(f, "{}", v),
-            Self::Neg(ex) => write!(f, "{}", ex),
-            Self::BinaryOp(e1, op, e2) => write!(f, "{} {} {}", e1, op, e2),
-            Self::Var(n) => write!(f, "{}", n),
-            Self::CallRef(fun, args) => write!(f, "{} ({:?})", fun, args),
-            Self::CallName(n, args ) => write!(f, "{} ({:?})", n, args),
-            Self::Array(elems) => write!(f, "[{:?}]", elems),
-            Self::Index(n, ex) => write!(f, "{}[{}]", n, ex),
-            Self::UnaryOp(op, ex) => write!(f, "{}{}", op, ex),
+            Self::Val { value } => write!(f, "{}", value),
+            //Self::Neg(ex) => write!(f, "{}", ex),
+            Self::BinaryOp { lhs, op, rhs } => write!(f, "{} {} {}", lhs, op, rhs),
+            Self::Var { name } => write!(f, "{}", name),
+            Self::CallRef { fun, args } => write!(f, "{} ({:?})", fun, args),
+            Self::CallName { callee, args } => write!(f, "{} ({:?})", callee, args),
+            Self::Array { elements } => write!(f, "[{:?}]", elements),
+            Self::Index { index, array } => write!(f, "{}[{}]", array, index),
+            Self::UnaryOp { op, expr } => write!(f, "{}{}", op, expr),
             // Self::Deref(ex) => write!(f, "*{}", ex),  // ? Not needed?
             // Self::Ref(n) => write!(f, "&{}", n),
         }
@@ -88,26 +88,37 @@ impl Display for Type {
 impl Display for Stmt {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
-            Self::If(tr, bl, fal) => match fal {
-                Some(fal) => write!(f, "if({}){{ {} }} else{{ {} }}", tr, bl, fal),
-                None => write!(f, "if({}) {}", tr, bl),
+            Self::If {
+                condition,
+                then_branch,
+                else_branch,
+            } => match else_branch {
+                Some(fal) => write!(
+                    f,
+                    "if({}){{ {} }} else{{ {} }}",
+                    condition, then_branch, fal
+                ),
+                None => write!(f, "if({}) {}", condition, then_branch),
             },
-            Self::Assign(var, val) => write!(f, "{} = {};", var, val),
-            Self::ExprStmt(ex) => write!(f, "{};", ex),
+            Self::Assign { lhs, rhs } => write!(f, "{} = {};", lhs, rhs),
+            Self::ExprStmt { expr } => write!(f, "{};", expr),
             //Self::DeclD(t, n, val) => match val {
-                //Some(v) => write!(f, "{} {} = {};", t, n, v),
-                //None => write!(f, "{} {};", t, n),
+            //Some(v) => write!(f, "{} {} = {};", t, n, v),
+            //None => write!(f, "{} {};", t, n),
             //},
-            Self::Decl(n) => {
-                write!(f, "{}", n)
+            Self::Decl { typ, name, expr } => {
+                if let Some(expr) = expr {
+                    return write!(f, "{} {} {}", typ, name, expr);
+                }
+                write!(f, "{} {}", typ, name)
             }
-            Self::Return(ex) => {
-                write!(f, "return {}", ex)
+            Self::Return { expr } => {
+                write!(f, "return {}", expr)
             }
-            Self::Block(v) => {
+            Self::Block { stmts } => {
                 //write!(f, "{{ {:?} }}", btree.keys().clone())
                 write!(f, "{{")?;
-                for stmt in v {
+                for stmt in stmts {
                     write!(f, "{}", stmt)?;
                 }
                 write!(f, "}}")
