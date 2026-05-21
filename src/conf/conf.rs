@@ -288,26 +288,28 @@ impl Config {
                     s: self.s.clone(),
                     k: Rc::new(IndexK(Rc::new(id.clone()), self.k.clone())),
                 },
-                CallRef { fun, args } => match args.slice_ref() {
-                    [first, rest @ ..] => Self {
-                        c: AstExpr(first.clone()),
-                        e: Rc::new(Env::new()),
-                        s: self.s.clone(),
-                        k: Rc::new(CallK(
-                            self.e.clone(),
-                            fun.clone(),
-                            fun.params.clone(),
-                            Rc::new(Arguments::from(rest)),
-                            self.k.clone(),
-                        )),
-                    },
-                    [] => Self {
-                        c: AstStmt(fun.body.clone()),
-                        e: Rc::new(Env::new()),
-                        s: self.s.clone(),
-                        k: Rc::new(FunK(self.e.clone(), self.k.clone())),
-                    },
-                },
+                // CallRef { fun, args } => match args.slice_ref() {
+                //     [first, rest @ ..] => Self {
+                //         c: AstExpr(first.clone()),
+                //         e: Rc::new(Env::new()),
+                //         s: self.s.clone(),
+                //         k: Rc::new(CallK(
+                //             self.e.clone(),
+                //             fun.clone(),
+                //             fun.params.clone(),
+                //             Rc::new(Arguments::from(rest)),
+                //             self.k.clone(),
+                //         )),
+                //     },
+                //     [] => Self {
+                //         c: AstStmt(fun.body.clone()),
+                //         e: Rc::new(Env::new()),
+                //         s: self.s.clone(),
+                //         k: Rc::new(FunK(self.e.clone(), self.k.clone())),
+                //     },
+                // },
+                CallRef{fun: _, args: _} => todo!(),
+                
                 Val { value: v } => {
                     if let Value::AddrV(a) = v.as_ref() {
                         if let LvalK(_, _, _) = self.k.as_ref() {
@@ -326,12 +328,40 @@ impl Config {
                         self.invoke_kont(v.clone(), handler)
                     }
                 }
+// 
+//                 CallName {
+//                     callee: name,
+//                     args: _,
+//                 } => unreachable!("CallName expression encountered: '{name}'"),
+                CallName { callee, args } => {
 
-                CallName {
-                    callee: name,
-                    args: _,
-                } => unreachable!("CallName expression encountered: '{name}'"),
-                // ? Neg(_) => todo!(),
+                	if let Fun {typ, name, params, body} = &*handler.function_lookup(&callee).unwrap() {
+                		match args.slice_ref() {
+                			    [first, rest @ ..] => Self {
+                			        c: AstExpr(first.clone()),
+                			        e: self.e.clone(),
+                			        s: self.s.clone(),
+                			        k: Rc::new(CallK(
+                			            self.e.clone(),
+                			            Rc::new(Env::new()),
+                			            body.clone(),
+                			            params.clone(),
+                			            Rc::new(Arguments::from(rest)),
+                			            self.k.clone(),
+                			        )),
+                			    },
+                			    [] => Self {
+                			        c: AstStmt(body.clone()),
+                			        e: Rc::new(Env::new()),
+                			        s: self.s.clone(),
+                			        k: Rc::new(FunK(self.e.clone(), self.k.clone())),
+                			    },
+                			}	
+                	} else {
+                		panic!()
+                	}
+
+                }
             },
         }
     }
@@ -404,27 +434,52 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            CallK(env, fun, params, args, k) => match (args.slice_ref(), params.slice_ref()) {
+            CallK(old_env, fun_env, body, params, args, k) => 
+			{
+				
+			let addr = handler.get_address();
+
+            match (args.slice_ref(), params.slice_ref()) {
                 ([first, rest @ ..], [pfirst, prest @ ..]) => Self {
                     c: AstExpr(first.clone()),
-                    e: Rc::new(Env::new()),
-                    s: self.s.clone(),
+                    e: self.e.clone(),
+                    s: {
+                    	let mut new_store = (*self.s).clone();
+                    	new_store.insert(addr.clone(), v1.clone());
+                    	Rc::new(new_store)
+                    },
                     k: Rc::new(CallK(
-                        self.e.clone(),
-                        fun.clone(),
-                        fun.params.clone(),
+                        old_env.clone(),
+                        {
+                        let mut new_env = fun_env.as_ref().clone();
+                        new_env.insert(pfirst.name.clone(), addr.clone());
+                        Rc::new(new_env)
+                    	},
+                        body.clone(),
+                        //prest.into(),
+                        Rc::new(ParamList::from(prest)),
                         Rc::new(Arguments::from(rest)),
-                        self.k.clone(),
+                       	k.clone(),
+                        
                     )),
                 },
-                ([], []) => Self {
-                    c: AstStmt(fun.body.clone()),
-                    e: Rc::new(Env::new()),
-                    s: self.s.clone(),
-                    k: Rc::new(FunK(self.e.clone(), self.k.clone())),
+                ([], [pfirst]) => Self {
+                    c: AstStmt(body.clone()),
+                    e: {
+                    	let mut new_env = fun_env.as_ref().clone();
+                    	new_env.insert(pfirst.name.clone(), addr.clone());
+                    	Rc::new(new_env)
+                    },
+                    s: {
+                    	let mut new_store = (*self.s).clone();
+                    	new_store.insert(addr.clone(), v1.clone());
+                    	Rc::new(new_store)
+                    },
+                    k: Rc::new(FunK(old_env.clone(), k.clone())),
                 },
-                _ => panic!("Mismatched number of arguments and paramenters"),
-            },
+                _ => panic!("mismatched number of arguments and paramenters\nparams: {:?}\nargs: {:?}", params, args),
+            }
+            }
             ExprStmtK(succ, k) => Self {
                 c: AstStmt(succ.clone()),
                 e: self.e.clone(),
