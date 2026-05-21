@@ -2,7 +2,7 @@ use chumsky::prelude::*;
 
 use crate::{
     ast::*,
-    parser::{common::program_parser, lexer::token::Token},
+    parser::{common::program_parser, lexer::token::Token, common::ParseError},
 };
 
 

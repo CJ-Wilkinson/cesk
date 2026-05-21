@@ -14,7 +14,7 @@ use chumsky::{IterParser, Parser, extra};
 use chumsky::prelude::end;
 use std::collections::BTreeMap;
 
-type ParseError<'src> = extra::Err<Rich<'src, Token>>;
+pub type ParseError<'src> = extra::Err<Rich<'src, Token>>;
 
 // common signature for the parsers
 //-> impl Parser<'src, &'src [Token], (), ParseError<'src>> + Clone
