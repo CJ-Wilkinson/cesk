@@ -13,7 +13,7 @@ mod visit;
 // pub use visit::viz::dot_to_png;
 // pub use visit::successor_visitor::SuccessorVisitor;
 
-use chumsky::Parser;
+// use chumsky::Parser;
 
 //
 //
@@ -26,16 +26,38 @@ use crate::conf::ProgramHandler;
 use crate::conf::conf::Config;
 use crate::parser::lexer::lexer::lex;
 use crate::parser::parse::parse;
+use clap::Parser;
+
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long)]
+    step_through: bool,
+
+    #[arg(short, long)]
+    debug: bool,
+
+    #[arg(short, long)]
+    file: Option<String>,
+}
+
 
 fn main() {
-    println!("Enter program: ");
 
+    let args = Args::parse();
     let mut input = Vec::new();
 
-    io::stdin()
-        .read_to_end(&mut input)
-        .expect("Failed to read line");
+    // read from file if filename is given in command line
+    if let Some(file) = args.file {
+        input = std::fs::read(file).unwrap();
+    } else {
+        println!("Enter program: ");
 
+        io::stdin()
+            .read_to_end(&mut input)
+            .expect("Failed to read line");
+
+    }
     let src = std::str::from_utf8(&input).unwrap_or("");
 
     let tokens = lex(src);
@@ -49,8 +71,10 @@ fn main() {
                 loop {
                     println!("{}", sigma);
 
-                    let mut input = String::new();
-                    let _ = io::stdin().read_line(&mut input);
+                    if args.step_through == true {
+                        let mut input = String::new();
+                        let _ = io::stdin().read_line(&mut input);
+                    }
 
                     sigma = sigma.next(&mut handler);
                 }
