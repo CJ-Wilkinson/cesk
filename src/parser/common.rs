@@ -453,7 +453,7 @@ pub fn fun_parser<'src>() -> impl Parser<'src, &'src [Token], Fun, ParseError<'s
 }
 
 pub fn main_fun_parser<'src>() -> impl Parser<'src, &'src [Token], Fun, ParseError<'src>> + Clone {
-    expect_tag(UNIT)
+    expect_tag(INT)
         .ignore_then(expect_tag(MAIN))
         .ignore_then(expect_tag(LPAREN))
         .then_ignore(expect_tag(RPAREN))
