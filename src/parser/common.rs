@@ -11,6 +11,9 @@ use chumsky::prelude::any;
 use chumsky::prelude::{choice, recursive};
 use chumsky::{IterParser, Parser, extra};
 
+use chumsky::prelude::end;
+use std::collections::BTreeMap;
+
 type ParseError<'src> = extra::Err<Rich<'src, Token>>;
 
 // common signature for the parsers
@@ -434,4 +437,56 @@ pub fn equality_op_parser<'src>()
         expect_tag(EQEQ).to(Operation::Eq),
         expect_tag(NOTEQ).to(Operation::Neq),
     ))
+}
+
+pub fn fun_parser<'src>() -> impl Parser<'src, &'src [Token], Fun, ParseError<'src>> + Clone {
+    type_parser()
+        .then(name_parser())
+        .then(params_parser())
+        .then(block_stmt_parser(statement_parser()))
+        .map(|(((typ, name), params), body)| Fun {
+            typ,
+            name,
+            params: Rc::new(params),
+            body: Rc::new(body),
+        })
+}
+
+pub fn main_fun_parser<'src>() -> impl Parser<'src, &'src [Token], Fun, ParseError<'src>> + Clone {
+    expect_tag(UNIT)
+        .ignore_then(expect_tag(MAIN))
+        .ignore_then(expect_tag(LPAREN))
+        .then_ignore(expect_tag(RPAREN))
+        .then(block_stmt_parser(statement_parser()))
+        .map(|(_, body)| Fun {
+            typ: Type::UnitT,
+            name: "main".to_string(),
+            params: Rc::new(ParamList { params: Vec::new() }),
+            body: Rc::new(body),
+        })
+}
+
+pub fn program_parser<'src>() -> impl Parser<'src, &'src [Token], Program, ParseError<'src>> + Clone
+{
+    fun_parser()
+        .repeated()
+        .collect::<Vec<_>>()
+        .then(main_fun_parser())
+        .then(fun_parser().repeated().collect::<Vec<_>>())
+        .then_ignore(end())
+        .map(|((before_main, main_fun), after_main)| {
+            let mut funs = BTreeMap::new();
+
+            for fun in before_main {
+                funs.insert(fun.name.clone(), fun);
+            }
+
+            funs.insert(main_fun.name.clone(), main_fun);
+
+            for fun in after_main {
+                funs.insert(fun.name.clone(), fun);
+            }
+
+            Program { funs }
+        })
 }

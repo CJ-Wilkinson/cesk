@@ -134,6 +134,7 @@ fn keyword_or_identifier(s: &str) -> TokenTag {
         "for" => TokenTag::FOR,           //    for
         "break" => TokenTag::BREAK,       //    break
         "return" => TokenTag::RETURN,
+        "main" => TokenTag::MAIN,
         _ => TokenTag::NAME,
     }
 }

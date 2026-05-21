@@ -8,6 +8,7 @@ impl Arguments {
         &self.args
     }
 }
+
 impl From<&[Rc<Expr>]> for Arguments {
     fn from(value: &[Rc<Expr>]) -> Self {
         Self {
@@ -15,13 +16,16 @@ impl From<&[Rc<Expr>]> for Arguments {
         }
     }
 }
+
+// ParamList
 impl ParamList {
-    pub fn slice_ref(&self) -> &[(Type, Name)] {
+    pub fn slice_ref(&self) -> &[Param] {
         &self.params
     }
 }
-impl From<&[(Type, Name)]> for ParamList {
-    fn from(value: &[(Type, Name)]) -> Self {
+
+impl From<&[Param]> for ParamList {
+    fn from(value: &[Param]) -> Self {
         Self {
             params: value.to_vec(),
         }

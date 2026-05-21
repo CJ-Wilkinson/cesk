@@ -51,7 +51,8 @@ pub enum TokenTag {
     WHILE,    //    while
     FOR,      //    for
     BREAK,    //    break
-    RETURN,
+    RETURN,   //    return
+    MAIN,     //    main is reserved
 }
 
 impl Display for TokenTag {
