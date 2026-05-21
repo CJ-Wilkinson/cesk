@@ -51,8 +51,8 @@ pub fn lex(src: &str) -> Vec<Token> {
         let (tag, lexeme) = match tok {
             LexTok::Identifier => {
                 let tag = keyword_or_identifier(slice);
-                let lx = if tag == TokenTag::ID {
-                    Some(TokenLexeme::Id(slice.to_string()))
+                let lx = if tag == TokenTag::NAME {
+                    Some(TokenLexeme::Name(slice.to_string()))
                 } else {
                     None
                 };
@@ -133,6 +133,7 @@ fn keyword_or_identifier(s: &str) -> TokenTag {
         "while" => TokenTag::WHILE,       //    while
         "for" => TokenTag::FOR,           //    for
         "break" => TokenTag::BREAK,       //    break
-        _ => TokenTag::ID,
+        "return" => TokenTag::RETURN,
+        _ => TokenTag::NAME,
     }
 }

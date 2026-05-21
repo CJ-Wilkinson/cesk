@@ -96,7 +96,8 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    Decl { name: id } => {
+                    Decl { name: id, .. } => {
+                        // todo *** Need to figure out how we're handling types. Parser takes types as input
                         let addr = handler.get_address();
                         Self {
                             /* Introduce variable into environment */

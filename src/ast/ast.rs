@@ -184,6 +184,162 @@ pub enum Expr {
     //CallRef(Rc<Fun>, Arguments), // ! Change everything over\
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Type {
+    IntT,
+    BoolT,
+    UnitT,
+    ArrayT(Rc<Type>),
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Stmt {
+    ForD {
+        init: Option<Rc<Expr>>,
+        condition: Rc<Expr>,
+        update: Option<Rc<Expr>>,
+        body: Rc<Stmt>,
+    },
+    If {
+        condition: Rc<Expr>,
+        then_branch: Rc<Stmt>,
+        else_branch: Option<Rc<Stmt>>,
+    },
+    Assign {
+        lhs: Rc<Expr>,
+        rhs: Rc<Expr>,
+    },
+    ExprStmt {
+        expr: Rc<Expr>,
+    },
+    Decl {
+        typ: Type,
+        name: Name,
+        expr: Option<Rc<Expr>>,
+    },
+    Return {
+        expr: Rc<Expr>,
+    },
+    Block {
+        stmts: Vec<Rc<Stmt>>,
+    },
+    While {
+        condition: Rc<Expr>,
+        body: Rc<Stmt>,
+    },
+    Continue,
+    Break,
+    //ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
+    //If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
+    //DeclD(Type, Name, Option<Rc<Expr>>),
+    //Assign(Rc<Expr>, Rc<Expr>),
+    //ExprStmt(Rc<Expr>),
+    //Decl(Name),
+    //Return(Rc<Expr>),
+    //Block(Vec<Rc<Stmt>>),
+    //While(Rc<Expr>, Rc<Stmt>),
+    //Continue,
+    //Break,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Arguments {
+    pub args: Vec<Rc<Expr>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ParamList {
+    pub params: Vec<Param>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Param {
+    pub typ: Type,
+    pub name: Name,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Fun {
+    pub typ: Type,
+    pub name: Name,
+    pub params: Rc<ParamList>,
+    pub body: Rc<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Program {
+    pub funs: BTreeMap<Name, Fun>,
+}
+
+impl Program {
+    pub fn new() -> Self {
+        Self {
+            funs: BTreeMap::new(),
+        }
+    }
+    pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
+        match self.funs.get("main") {
+            Some(fun) => Ok(fun.body.clone()),
+            None => Err("failed to get entry point"),
+        }
+    }
+}
+impl Stmt {
+    pub fn for_d(
+        init: Option<Rc<Expr>>,
+        condition: Rc<Expr>,
+        update: Option<Rc<Expr>>,
+        body: Rc<Stmt>,
+    ) -> Stmt {
+        Stmt::ForD {
+            init,
+            condition,
+            update,
+            body,
+        }
+    }
+
+    pub fn if_(condition: Rc<Expr>, then_branch: Rc<Stmt>, else_branch: Option<Rc<Stmt>>) -> Stmt {
+        Stmt::If {
+            condition,
+            then_branch,
+            else_branch,
+        }
+    }
+
+    pub fn assign(lhs: Rc<Expr>, rhs: Rc<Expr>) -> Stmt {
+        Stmt::Assign { lhs, rhs }
+    }
+
+    pub fn expr_stmt(expr: Rc<Expr>) -> Stmt {
+        Stmt::ExprStmt { expr }
+    }
+
+    pub fn decl(typ: Type, name: Name, expr: Option<Rc<Expr>>) -> Stmt {
+        Stmt::Decl { typ, name, expr }
+    }
+
+    pub fn return_(expr: Rc<Expr>) -> Stmt {
+        Stmt::Return { expr }
+    }
+
+    pub fn block(stmts: Vec<Rc<Stmt>>) -> Stmt {
+        Stmt::Block { stmts }
+    }
+
+    pub fn while_(condition: Rc<Expr>, body: Rc<Stmt>) -> Stmt {
+        Stmt::While { condition, body }
+    }
+
+    pub fn continue_() -> Stmt {
+        Stmt::Continue
+    }
+
+    pub fn break_() -> Stmt {
+        Stmt::Break
+    }
+}
+
 impl Expr {
     pub fn val(value: Rc<Value>) -> Expr {
         Expr::Val { value }
@@ -218,118 +374,6 @@ impl Expr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Type {
-    IntT,
-    BoolT,
-    UnitT,
-    ArrayT(Rc<Type>),
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Stmt {
-    ForD {
-        init: Option<Rc<Expr>>,
-        condition: Rc<Expr>,
-        update: Option<Rc<Expr>>,
-        body: Rc<Stmt>,
-    },
-    If {
-        condition: Rc<Expr>,
-        then_branch: Rc<Stmt>,
-        else_branch: Option<Rc<Stmt>>,
-    },
-    Assign {
-        lhs: Rc<Expr>,
-        rhs: Rc<Expr>,
-    },
-    ExprStmt {
-        expr: Rc<Expr>,
-    },
-    Decl {
-        name: Name,
-    },
-    Return {
-        expr: Rc<Expr>,
-    },
-    Block {
-        stmts: Vec<Rc<Stmt>>,
-    },
-    While {
-        condition: Rc<Expr>,
-        body: Rc<Stmt>,
-    },
-    Continue,
-    Break,
-    //ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
-    //If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
-    //DeclD(Type, Name, Option<Rc<Expr>>),
-    //Assign(Rc<Expr>, Rc<Expr>),
-    //ExprStmt(Rc<Expr>),
-    //Decl(Name),
-    //Return(Rc<Expr>),
-    //Block(Vec<Rc<Stmt>>),
-    //While(Rc<Expr>, Rc<Stmt>),
-    //Continue,
-    //Break,
-}
-
-impl Stmt {
-    pub fn for_d(
-        init: Option<Rc<Expr>>,
-        condition: Rc<Expr>,
-        update: Option<Rc<Expr>>,
-        body: Rc<Stmt>,
-    ) -> Stmt {
-        Stmt::ForD {
-            init,
-            condition,
-            update,
-            body,
-        }
-    }
-
-    pub fn if_(condition: Rc<Expr>, then_branch: Rc<Stmt>, else_branch: Option<Rc<Stmt>>) -> Stmt {
-        Stmt::If {
-            condition,
-            then_branch,
-            else_branch,
-        }
-    }
-
-    pub fn assign(lhs: Rc<Expr>, rhs: Rc<Expr>) -> Stmt {
-        Stmt::Assign { lhs, rhs }
-    }
-
-    pub fn expr_stmt(expr: Rc<Expr>) -> Stmt {
-        Stmt::ExprStmt { expr }
-    }
-
-    pub fn decl(name: Name) -> Stmt {
-        Stmt::Decl { name }
-    }
-
-    pub fn return_(expr: Rc<Expr>) -> Stmt {
-        Stmt::Return { expr }
-    }
-
-    pub fn block(stmts: Vec<Rc<Stmt>>) -> Stmt {
-        Stmt::Block { stmts }
-    }
-
-    pub fn while_(condition: Rc<Expr>, body: Rc<Stmt>) -> Stmt {
-        Stmt::While { condition, body }
-    }
-
-    pub fn continue_() -> Stmt {
-        Stmt::Continue
-    }
-
-    pub fn break_() -> Stmt {
-        Stmt::Break
-    }
-}
-
 impl Iterator for Stmt {
     type Item = Rc<Stmt>;
     fn next(&mut self) -> Option<Self::Item> {
@@ -340,48 +384,6 @@ impl Iterator for Stmt {
                 Some(ret)
             }
             _ => panic!("statement has no successors"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Arguments {
-    pub args: Vec<Rc<Expr>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ParamList {
-    pub params: Vec<(Type, Name)>,
-}
-
-pub struct Param {
-    pub typ: Type,
-    pub name: Name,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Fun {
-    pub typ: Type,
-    pub name: Name,
-    pub params: Rc<ParamList>,
-    pub body: Rc<Stmt>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Program {
-    pub funs: BTreeMap<Name, Fun>,
-}
-
-impl Program {
-    pub fn new() -> Self {
-        Self {
-            funs: BTreeMap::new(),
-        }
-    }
-    pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
-        match self.funs.get("main") {
-            Some(fun) => Ok(fun.body.clone()),
-            None => Err("failed to get entry point"),
         }
     }
 }

@@ -106,8 +106,11 @@ impl Display for Stmt {
             //Some(v) => write!(f, "{} {} = {};", t, n, v),
             //None => write!(f, "{} {};", t, n),
             //},
-            Self::Decl { name } => {
-                write!(f, "{}", name)
+            Self::Decl { typ, name, expr } => {
+                if let Some(expr) = expr {
+                    return write!(f, "{} {} {}", typ, name, expr);
+                }
+                write!(f, "{} {}", typ, name)
             }
             Self::Return { expr } => {
                 write!(f, "return {}", expr)

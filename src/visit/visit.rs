@@ -195,7 +195,13 @@ impl Traverse for Stmt {
             }
 
             ExprStmt { expr } => expr.traverse(v),
-            Decl { name } => name.traverse(v),
+            Decl { typ, name, expr } => {
+                typ.traverse(v);
+                name.traverse(v);
+                if let Some(expr) = expr {
+                    expr.traverse(v);
+                }
+            }
             Return { expr } => expr.traverse(v),
             Block { stmts: v_stmts } => {
                 for stmt in v_stmts.iter() {
@@ -223,8 +229,8 @@ impl Traverse for Arguments {
 impl Traverse for ParamList {
     fn traverse<V: Visitor>(&self, v: &mut V) {
         v.previsit_paramlist(self);
-        for (type_, name) in self.params.iter() {
-            type_.traverse(v);
+        for Param { typ, name } in self.params.iter() {
+            typ.traverse(v);
             name.traverse(v);
         }
 

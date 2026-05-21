@@ -5,7 +5,7 @@ use std::fmt::Display;
 pub enum TokenTag {
     //literals and identifiers
     INTLIT,
-    ID,
+    NAME,
     UNKNOWN,
     EOF,
 
@@ -51,6 +51,7 @@ pub enum TokenTag {
     WHILE,    //    while
     FOR,      //    for
     BREAK,    //    break
+    RETURN,
 }
 
 impl Display for TokenTag {
@@ -76,7 +77,7 @@ pub struct TokenLocation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenLexeme {
     Int(i64),
-    Id(String),
+    Name(String),
     Unknown(char),
 }
 
@@ -84,7 +85,7 @@ impl Display for TokenLexeme {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TokenLexeme::Int(n) => write!(f, "{n}"),
-            TokenLexeme::Id(id) => write!(f, "{id}"),
+            TokenLexeme::Name(name) => write!(f, "{name}"),
             TokenLexeme::Unknown(c) => write!(f, "{c}"),
         }
     }
