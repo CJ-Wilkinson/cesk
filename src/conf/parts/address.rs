@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter, Error};
+use std::fmt::{Display, Error, Formatter};
 
 #[derive(Debug, Eq, PartialOrd, Ord, Hash, PartialEq, Clone)]
 pub struct Address {

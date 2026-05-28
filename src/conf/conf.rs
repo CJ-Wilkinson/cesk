@@ -135,17 +135,17 @@ impl Config {
                             s: self.s.clone(),
                             k: k.clone(),
                         },
-                        ReturnK(_, _) => Self {
+                        ReturnK(_, _, _) => Self {
                             c: AstExpr(expr.clone()),
                             e: self.e.clone(),
                             s: self.s.clone(),
                             k: self.k.clone(),
                         },
-                        FunK(env, k) => Self {
+                        FunK(typ, env, k) => Self {
                             c: AstExpr(expr.clone()),
                             e: self.e.clone(),
                             s: self.s.clone(),
-                            k: Rc::new(ReturnK(env.clone(), k.clone())),
+                            k: Rc::new(ReturnK(typ.clone(), env.clone(), k.clone())),
                         },
                         Mt => Self {
                             c: AstExpr(expr.clone()),
@@ -156,6 +156,7 @@ impl Config {
                         _ => panic!("Found some other Kont"),
                     },
                     Block { stmts } => match stmts.get(0) {
+                        // TODO: fix this
                         Some(stmt) => Self {
                             c: AstStmt(stmts.get(0).unwrap().clone()), // TODO unwrap
                             e: self.e.clone(),
@@ -308,8 +309,8 @@ impl Config {
                 //         k: Rc::new(FunK(self.e.clone(), self.k.clone())),
                 //     },
                 // },
-                CallRef{fun: _, args: _} => todo!(),
-                
+                CallRef { fun: _, args: _ } => todo!(),
+
                 Val { value: v } => {
                     if let Value::AddrV(a) = v.as_ref() {
                         if let LvalK(_, _, _) = self.k.as_ref() {
@@ -328,39 +329,44 @@ impl Config {
                         self.invoke_kont(v.clone(), handler)
                     }
                 }
-// 
-//                 CallName {
-//                     callee: name,
-//                     args: _,
-//                 } => unreachable!("CallName expression encountered: '{name}'"),
+                //
+                //                 CallName {
+                //                     callee: name,
+                //                     args: _,
+                //                 } => unreachable!("CallName expression encountered: '{name}'"),
                 CallName { callee, args } => {
-
-                	if let Fun {typ, name, params, body} = &*handler.function_lookup(&callee).unwrap() {
-                		match args.slice_ref() {
-                			    [first, rest @ ..] => Self {
-                			        c: AstExpr(first.clone()),
-                			        e: self.e.clone(),
-                			        s: self.s.clone(),
-                			        k: Rc::new(CallK(
-                			            self.e.clone(),
-                			            Rc::new(Env::new()),
-                			            body.clone(),
-                			            params.clone(),
-                			            Rc::new(Arguments::from(rest)),
-                			            self.k.clone(),
-                			        )),
-                			    },
-                			    [] => Self {
-                			        c: AstStmt(body.clone()),
-                			        e: Rc::new(Env::new()),
-                			        s: self.s.clone(),
-                			        k: Rc::new(FunK(self.e.clone(), self.k.clone())),
-                			    },
-                			}	
-                	} else {
-                		panic!()
-                	}
-
+                    if let Fun {
+                        typ,
+                        name,
+                        params,
+                        body,
+                    } = &*handler.function_lookup(&callee).unwrap()
+                    {
+                        match args.slice_ref() {
+                            [first, rest @ ..] => Self {
+                                c: AstExpr(first.clone()),
+                                e: self.e.clone(),
+                                s: self.s.clone(),
+                                k: Rc::new(CallK(
+                                    typ.clone(),
+                                    self.e.clone(),
+                                    Rc::new(Env::new()),
+                                    body.clone(),
+                                    params.clone(),
+                                    Rc::new(Arguments::from(rest)),
+                                    self.k.clone(),
+                                )),
+                            },
+                            [] => Self {
+                                c: AstStmt(body.clone()),
+                                e: Rc::new(Env::new()),
+                                s: self.s.clone(),
+                                k: Rc::new(FunK(typ.clone(), self.e.clone(), self.k.clone())),
+                            },
+                        }
+                    } else {
+                        panic!()
+                    }
                 }
             },
         }
@@ -416,12 +422,18 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            ReturnK(env, k) => Self {
-                c: AstExpr(Rc::new(Expr::val(v1.clone()))),
-                e: env.clone(),
-                s: self.s.clone(),
-                k: k.clone(),
-            },
+            ReturnK(typ, env, k) => {
+                if &v1.get_type() == typ {
+                    Self {
+                        c: AstExpr(Rc::new(Expr::val(v1.clone()))),
+                        e: env.clone(),
+                        s: self.s.clone(),
+                        k: k.clone(),
+                    }
+                } else {
+                    panic!("return type mismatch")
+                }
+            }
             AssignK(lval, succ, k) => Self {
                 c: AstExpr(lval.clone()),
                 e: self.e.clone(),
@@ -434,51 +446,68 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            CallK(old_env, fun_env, body, params, args, k) => 
-			{
-				
-			let addr = handler.get_address();
+            CallK(typ, old_env, fun_env, body, params, args, k) => {
+                let addr = handler.get_address();
 
-            match (args.slice_ref(), params.slice_ref()) {
-                ([first, rest @ ..], [pfirst, prest @ ..]) => Self {
-                    c: AstExpr(first.clone()),
-                    e: self.e.clone(),
-                    s: {
-                    	let mut new_store = (*self.s).clone();
-                    	new_store.insert(addr.clone(), v1.clone());
-                    	Rc::new(new_store)
-                    },
-                    k: Rc::new(CallK(
-                        old_env.clone(),
-                        {
-                        let mut new_env = fun_env.as_ref().clone();
-                        new_env.insert(pfirst.name.clone(), addr.clone());
-                        Rc::new(new_env)
-                    	},
-                        body.clone(),
-                        //prest.into(),
-                        Rc::new(ParamList::from(prest)),
-                        Rc::new(Arguments::from(rest)),
-                       	k.clone(),
-                        
-                    )),
-                },
-                ([], [pfirst]) => Self {
-                    c: AstStmt(body.clone()),
-                    e: {
-                    	let mut new_env = fun_env.as_ref().clone();
-                    	new_env.insert(pfirst.name.clone(), addr.clone());
-                    	Rc::new(new_env)
-                    },
-                    s: {
-                    	let mut new_store = (*self.s).clone();
-                    	new_store.insert(addr.clone(), v1.clone());
-                    	Rc::new(new_store)
-                    },
-                    k: Rc::new(FunK(old_env.clone(), k.clone())),
-                },
-                _ => panic!("mismatched number of arguments and paramenters\nparams: {:?}\nargs: {:?}", params, args),
-            }
+                match (args.slice_ref(), params.slice_ref()) {
+                    ([first, rest @ ..], [pfirst, prest @ ..]) => {
+                        if v1.get_type() == pfirst.typ {
+                            Self {
+                                c: AstExpr(first.clone()),
+                                e: self.e.clone(),
+                                s: {
+                                    let mut new_store = (*self.s).clone();
+                                    new_store.insert(addr.clone(), v1.clone());
+                                    Rc::new(new_store)
+                                },
+                                k: Rc::new(CallK(
+                                    typ.clone(),
+                                    old_env.clone(),
+                                    {
+                                        let mut new_env = fun_env.as_ref().clone();
+                                        new_env.insert(pfirst.name.clone(), addr.clone());
+                                        Rc::new(new_env)
+                                    },
+                                    body.clone(),
+                                    Rc::new(ParamList::from(prest)),
+                                    Rc::new(Arguments::from(rest)),
+                                    k.clone(),
+                                )),
+                            }
+                        } else {
+                            panic!(
+                                "type mismatch: found {}, expected {}",
+                                v1.get_type(),
+                                pfirst.typ
+                            );
+                        }
+                    }
+                    ([], [pfirst]) => {
+                        if v1.get_type() == pfirst.typ {
+                            Self {
+                                c: AstStmt(body.clone()),
+                                e: {
+                                    let mut new_env = fun_env.as_ref().clone();
+                                    new_env.insert(pfirst.name.clone(), addr.clone());
+                                    Rc::new(new_env)
+                                },
+                                s: {
+                                    let mut new_store = (*self.s).clone();
+                                    new_store.insert(addr.clone(), v1.clone());
+                                    Rc::new(new_store)
+                                },
+                                k: Rc::new(FunK(typ.clone(), old_env.clone(), k.clone())),
+                            }
+                        } else {
+                            panic!(
+                                "type mismatch: found {}, expected {}",
+                                v1.get_type(),
+                                pfirst.typ
+                            );
+                        }
+                    }
+                    _ => panic!("mismatched number of arguments and paramenters"),
+                }
             }
             ExprStmtK(succ, k) => Self {
                 c: AstStmt(succ.clone()),
@@ -510,8 +539,14 @@ impl Config {
                 },
                 None => panic!("Undefined variable: {id}"),
             },
-            FunK(_, _) => unreachable!("Expected return, found value"),
-            Mt => panic!("Exited with code {v1}"),
+            FunK(_, _, _) => unreachable!("Expected return, found value"),
+            Mt => {
+                if v1.get_type() == Type::IntT {
+                    panic!("exited with code {v1}")
+                } else {
+                    panic!("invalid type for exit code")
+                }
+            }
         }
     }
 }

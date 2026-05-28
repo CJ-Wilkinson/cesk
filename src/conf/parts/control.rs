@@ -1,7 +1,7 @@
-use crate::ast::*;
-use std::rc::Rc;
 use super::address::Address;
-use std::fmt::{Display, Formatter, Error};
+use crate::ast::*;
+use std::fmt::{Display, Error, Formatter};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum Control {
