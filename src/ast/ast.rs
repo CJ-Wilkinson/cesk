@@ -68,10 +68,23 @@ pub enum Value {
     BoolV(bool),
     UnitV,
     ArrayV(
+        //Type, // Type of array
         usize,   // Size of array
         Address, // First address of array
     ),
     AddrV(Address),
+}
+
+impl Value {
+    pub fn get_type(&self) -> Type {
+        match self {
+            Value::IntV(_) => Type::IntT,
+            Value::BoolV(_) => Type::BoolT,
+            Value::UnitV => Type::UnitT,
+            Value::ArrayV(_, _) => todo!(), // TODO: array values need to store their type?
+            Value::AddrV(_) => Type::UnitT, // TODO: what type is an address?
+        }
+    }
 }
 // thing = [1, 2, 3]
 

@@ -78,8 +78,8 @@ impl Display for Type {
         use Type::*;
         match self {
             IntT => write!(f, "int"),
-            BoolT => write!(f, "int"),
-            UnitT => write!(f, "int"),
+            BoolT => write!(f, "bool"),
+            UnitT => write!(f, "unit"),
             ArrayT(t) => write!(f, "{}[]", t),
         }
     }

@@ -1,6 +1,6 @@
+use super::environment::Env;
 use crate::ast::*;
 use std::rc::Rc;
-use super::environment::Env;
 
 #[derive(Debug, PartialEq)]
 pub enum Kont {
@@ -10,14 +10,22 @@ pub enum Kont {
     OpRK(Operation, Rc<Value>, Rc<Kont>),
     UOpK(UOperation, Rc<Kont>),
     IfK(Rc<Stmt>, Option<Rc<Stmt>>, Rc<Stmt>, Rc<Kont>),
-    ReturnK(Rc<Env>, Rc<Kont>),
+    ReturnK(Type, Rc<Env>, Rc<Kont>),
     // First one is old environment
     // Second is function
-    CallK(Rc<Env>, Rc<Env>, Rc<Stmt>, Rc<ParamList>, Rc<Arguments>, Rc<Kont>),
-    FunK(Rc<Env>, Rc<Kont>),
+    CallK(
+        Type,
+        Rc<Env>,
+        Rc<Env>,
+        Rc<Stmt>,
+        Rc<ParamList>,
+        Rc<Arguments>,
+        Rc<Kont>,
+    ),
+    FunK(Type, Rc<Env>, Rc<Kont>),
     BlockK(Rc<Env>, Rc<Stmt>, Rc<Kont>), // ! I would like to rename this
     AssignK(Rc<Expr>, Rc<Stmt>, Rc<Kont>),
     WhileK(Rc<Env>, Rc<Expr>, Rc<Stmt>, Rc<Stmt>, Rc<Kont>),
     LvalK(Rc<Value>, Rc<Stmt>, Rc<Kont>),
-    IndexK(Rc<Name>, Rc<Kont>)
+    IndexK(Rc<Name>, Rc<Kont>),
 }

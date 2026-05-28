@@ -1,7 +1,7 @@
-use crate::ast::*;
-use std::rc::Rc;
-use std::collections::HashMap;
 use super::address::Address;
+use crate::ast::*;
+use std::collections::HashMap;
+use std::rc::Rc;
 // use std::fmt::{Display, Formatter, Error};
 
 // #[derive(Debug, Clone, PartialEq)]
@@ -22,7 +22,7 @@ pub type Store = HashMap<Address, Rc<Value>>;
 //         }
 //     }
 // }
-// 
+//
 // impl Display for Store {
 //     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
 //         write!(

@@ -28,7 +28,6 @@ use crate::parser::lexer::lexer::lex;
 use crate::parser::parse::parse;
 use clap::Parser;
 
-
 #[derive(Parser, Debug)]
 struct Args {
     #[arg(short, long)]
@@ -41,9 +40,7 @@ struct Args {
     file: Option<String>,
 }
 
-
 fn main() {
-
     let args = Args::parse();
     let mut input = Vec::new();
 
@@ -56,7 +53,6 @@ fn main() {
         io::stdin()
             .read_to_end(&mut input)
             .expect("Failed to read line");
-
     }
     let src = std::str::from_utf8(&input).unwrap_or("");
 
@@ -71,7 +67,7 @@ fn main() {
                 loop {
                     println!("{}", sigma);
 
-                    if args.step_through == true {
+                    if args.step_through {
                         let mut input = String::new();
                         let _ = io::stdin().read_line(&mut input);
                     }
