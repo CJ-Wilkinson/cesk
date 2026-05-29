@@ -1,3 +1,4 @@
+//output of this program should always be 1 
 int main(){
     if (true){
         return 1; 
