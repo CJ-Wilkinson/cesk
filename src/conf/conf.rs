@@ -476,7 +476,7 @@ impl Config {
                             }
                         } else {
                             panic!(
-                                "type mismatch: found {}, expected {}",
+                                "type mismatch: found {:?}, expected {:?}",
                                 v1.get_type(),
                                 pfirst.typ
                             );
