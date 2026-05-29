@@ -58,6 +58,7 @@ pub fn scalar_type_parser<'src>() -> impl Parser<'src, &'src [Token], Type, Pars
 
 pub fn type_parser<'src>() -> impl Parser<'src, &'src [Token], Type, ParseError<'src>> + Clone {
     let array_suffix = expect_tag(LSQUARE)
+        .then(expression_parser())
         .then_ignore(expect_tag(RSQUARE))
         .repeated()
         .count();
@@ -68,17 +69,30 @@ pub fn type_parser<'src>() -> impl Parser<'src, &'src [Token], Type, ParseError<
 }
 
 pub fn literal_parser<'src>() -> impl Parser<'src, &'src [Token], Expr, ParseError<'src>> + Clone {
-    bool_int_literal_parser().or(unit_literal_parser())
+    int_literal_parser().or(bool_literal_parser().or(unit_literal_parser()))
 }
 
-pub fn bool_int_literal_parser<'src>()
--> impl Parser<'src, &'src [Token], Expr, ParseError<'src>> + Clone {
+pub fn int_literal_parser<'src>() -> impl Parser<'src, &'src [Token], Expr, ParseError<'src>> + Clone
+{
     any().try_map(|tok: Token, span| {
         let lit = match tok.kind() {
             INTLIT => match tok.lexeme() {
                 Some(Int(n)) => Value::IntV((*n).try_into().unwrap()), // ! brittle, fix later??
                 _ => return Err(Rich::custom(span, "INTLIT missing integer lexeme")),
             },
+            _ => return Err(Rich::custom(span, "INTLIT missing integer lexeme")),
+        };
+        Ok(Expr::val(lit.into()))
+    })
+}
+
+/*
+ */
+
+pub fn bool_literal_parser<'src>()
+-> impl Parser<'src, &'src [Token], Expr, ParseError<'src>> + Clone {
+    any().try_map(|tok: Token, span| {
+        let lit = match tok.kind() {
             TRUE => Value::BoolV(true),
             FALSE => Value::BoolV(false),
             _ => return Err(Rich::custom(span, "Expected Literal")),
