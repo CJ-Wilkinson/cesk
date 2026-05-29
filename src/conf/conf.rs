@@ -456,7 +456,7 @@ impl Config {
                 None => panic!("Undefined variable: {id}"),
             },
             FunK(_, _) => unreachable!("Expected return, found value"),
-            Mt => panic!("Exited with code {v1}"),
+            Mt => panic!("{}", format!("Exited with code {:?}", v1)),
         }
     }
 }
