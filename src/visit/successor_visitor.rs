@@ -9,6 +9,7 @@ pub struct SuccessorVisitor {
     pub map: HashMap<Rc<Stmt>, Rc<Stmt>>,
 }
 
+#[allow(dead_code)]
 impl SuccessorVisitor {
     pub fn new() -> Self {
         Self {
@@ -18,11 +19,8 @@ impl SuccessorVisitor {
     pub fn create(start: &mut Stmt) -> HashMap<Rc<Stmt>, Rc<Stmt>> {
         let mut sv = SuccessorVisitor::new();
         start.traverse(&mut sv);
-        if let SuccessorVisitor { map } = sv {
-            map
-        } else {
-            panic!()
-        }
+        let SuccessorVisitor { map } = sv;
+        map
     }
 }
 
@@ -38,10 +36,10 @@ impl Visitor for SuccessorVisitor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::parser::common::*;
-    use crate::visit::visit::Traverse;
-    use chumsky::Parser;
+    //use super::*;
+    //use crate::parser::common::*;
+    //use crate::visit::visit::Traverse;
+    //use chumsky::Parser;
 
     /*
         todo fix this stuff, it's using the old string-based parsing while we've moved to tokens

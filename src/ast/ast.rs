@@ -81,11 +81,8 @@ impl Value {
             Value::IntV(_) => Type::IntT,
             Value::BoolV(_) => Type::BoolT,
             Value::UnitV => Type::UnitT,
-            Value::ArrayV {
-                size,
-                start_of_array,
-            } => todo!(), // TODO: array values need to store their type?
-            Value::AddrV(_) => Type::IntT, // TODO: what type is an address?
+            Value::ArrayV { .. } => todo!(), // TODO: array values need to store their type?
+            Value::AddrV(_) => Type::IntT,   // TODO: what type is an address?
         }
     }
 }
@@ -188,6 +185,7 @@ pub enum Expr {
         array: Name,
         index: Rc<Expr>,
     },
+    #[allow(dead_code)]
     CallRef {
         fun: Rc<Fun>,
         args: Arguments,
@@ -288,6 +286,7 @@ pub struct Program {
 }
 
 impl Program {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             funs: BTreeMap::new(),
@@ -385,6 +384,7 @@ impl Expr {
         Expr::Index { array, index }
     }
 
+    #[allow(dead_code)]
     pub fn call_ref(fun: Rc<Fun>, args: Arguments) -> Expr {
         Expr::CallRef { fun, args }
     }
@@ -404,14 +404,15 @@ impl Iterator for Stmt {
     }
 }
 
+#[allow(dead_code)]
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
     #[test]
     fn block_iter() {
-        use Stmt::Block;
-        use Stmt::Decl;
+        //use Stmt::Block;
+        //use Stmt::Decl;
 
         //let dec = Rc::new(Decl(Name("x".to_string())));
         //let dec2 = Rc::new(Decl(Name("y".to_string())));

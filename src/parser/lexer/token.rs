@@ -7,7 +7,7 @@ pub enum TokenTag {
     INTLIT,
     NAME,
     UNKNOWN,
-    EOF,
+    //EOF,
 
     //punctuation / delimitiers
     SEMICOLON, //   ;
@@ -100,6 +100,7 @@ pub struct Token {
     lexeme: Option<TokenLexeme>,
 }
 
+#[allow(dead_code)]
 impl Token {
     pub fn new(
         tag: TokenTag,

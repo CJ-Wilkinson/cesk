@@ -210,7 +210,6 @@ impl Traverse for Stmt {
             }
             Continue => {}
             Break => {}
-            _ => todo!(),
         }
         v.postvisit_stmt(self);
     }

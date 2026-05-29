@@ -4,18 +4,20 @@ use std::{fs, io};
 use crate::ast::*;
 use crate::visit::visit::{Traverse, Visitor};
 
+#[allow(dead_code)]
 pub fn program_to_dot(program: &Program) -> String {
     let mut viz = GraphVizVisitor::new();
     program.traverse(&mut viz);
     viz.finish()
 }
 
+#[allow(dead_code)]
 pub fn expr_to_dot(program: &Expr) -> String {
     let mut viz = GraphVizVisitor::new();
     program.traverse(&mut viz);
     viz.finish()
 }
-
+#[allow(dead_code)]
 pub fn dot_to_png(dot: &str, path: &str) -> io::Result<()> {
     fs::create_dir_all("out")?;
 
@@ -77,6 +79,7 @@ impl GraphVizVisitor {
     }
 }
 
+#[allow(dead_code)]
 fn escape_dot_label(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }

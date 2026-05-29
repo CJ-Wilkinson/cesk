@@ -42,6 +42,7 @@ impl From<Program> for ProgramHandler {
 }
 
 impl ProgramHandler {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         /*
         Creates a completely empty ProgramHandler
@@ -82,11 +83,11 @@ impl ProgramHandler {
 }
 
 #[cfg(test)]
-mod Test {
+mod test {
     use super::*;
 
     #[test]
     fn test_fun_lookup() {
-        let ph = ProgramHandler::new();
+        let _ph = ProgramHandler::new();
     }
 }

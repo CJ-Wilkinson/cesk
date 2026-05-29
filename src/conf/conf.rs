@@ -8,16 +8,16 @@ use super::parts::store::Store;
 use Control::*;
 use Expr::*;
 use Kont::*;
-use chumsky::prelude::todo;
+//use chumsky::prelude::todo;
 
 use Stmt::*;
 use Value::*;
 
-use core::prelude::v1;
-use std::collections::HashMap;
+//use core::prelude::v1;
+//use std::collections::HashMap;
 use std::convert::From;
 use std::fmt;
-use std::ops::Neg;
+//use std::ops::Neg;
 use std::rc::Rc;
 
 use super::prog_handler::ProgramHandler;
@@ -99,7 +99,8 @@ impl Config {
                     Decl {
                         name: id,
                         typ,
-                        expr,
+
+                        expr: _,
                     } => {
                         // todo *** Need to figure out how we're handling types. Parser takes types as input
                         // ! arrays need to unit initalize every element of the array
@@ -168,7 +169,7 @@ impl Config {
                     Block { stmts } => match stmts.get(0) {
                         // TODO: fix this
                         Some(stmt) => Self {
-                            c: AstStmt(stmts.get(0).unwrap().clone()), // TODO unwrap
+                            c: AstStmt(stmt.clone()), // TODO unwrap
                             e: self.e.clone(),
                             s: self.s.clone(),
                             k: Rc::new(BlockK(
@@ -191,7 +192,7 @@ impl Config {
                             s: self.s.clone(),
                             k: k.clone(),
                         },
-                        BlockK(env, succ, k) => Self {
+                        BlockK(env, _succ, k) => Self {
                             c: AstStmt(s.clone()),
                             e: env.clone(),
                             s: self.s.clone(),
@@ -215,7 +216,7 @@ impl Config {
                         )),
                     },
                     Continue => match self.k.as_ref() {
-                        WhileK(env, cond, _, _, k) => Self {
+                        WhileK(env, cond, _, _, _k) => Self {
                             c: AstExpr(cond.clone()),
                             e: env.clone(),
                             s: self.s.clone(),
@@ -349,37 +350,34 @@ impl Config {
                 //                     args: _,
                 //                 } => unreachable!("CallName expression encountered: '{name}'"),
                 CallName { callee, args } => {
-                    if let Fun {
+                    let Fun {
                         typ,
-                        name,
+                        name: _,
                         params,
                         body,
-                    } = &*handler.function_lookup(&callee).unwrap()
-                    {
-                        match args.slice_ref() {
-                            [first, rest @ ..] => Self {
-                                c: AstExpr(first.clone()),
-                                e: self.e.clone(),
-                                s: self.s.clone(),
-                                k: Rc::new(CallK(
-                                    typ.clone(),
-                                    self.e.clone(),
-                                    Rc::new(Env::new()),
-                                    body.clone(),
-                                    params.clone(),
-                                    Rc::new(Arguments::from(rest)),
-                                    self.k.clone(),
-                                )),
-                            },
-                            [] => Self {
-                                c: AstStmt(body.clone()),
-                                e: Rc::new(Env::new()),
-                                s: self.s.clone(),
-                                k: Rc::new(FunK(typ.clone(), self.e.clone(), self.k.clone())),
-                            },
-                        }
-                    } else {
-                        panic!()
+                    } = &*handler.function_lookup(&callee).unwrap();
+
+                    match args.slice_ref() {
+                        [first, rest @ ..] => Self {
+                            c: AstExpr(first.clone()),
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: Rc::new(CallK(
+                                typ.clone(),
+                                self.e.clone(),
+                                Rc::new(Env::new()),
+                                body.clone(),
+                                params.clone(),
+                                Rc::new(Arguments::from(rest)),
+                                self.k.clone(),
+                            )),
+                        },
+                        [] => Self {
+                            c: AstStmt(body.clone()),
+                            e: Rc::new(Env::new()),
+                            s: self.s.clone(),
+                            k: Rc::new(FunK(typ.clone(), self.e.clone(), self.k.clone())),
+                        },
                     }
                 }
             },
@@ -529,7 +527,7 @@ impl Config {
                 s: self.s.clone(),
                 k: k.clone(),
             },
-            WhileK(env, cond, body, succ, k) => match v1.as_ref() {
+            WhileK(env, _cond, body, succ, k) => match v1.as_ref() {
                 BoolV(true) => Self {
                     c: AstStmt(body.clone()),
                     e: self.e.clone(),
@@ -593,6 +591,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[allow(dead_code)]
     fn is_terminal(conf: &Config) -> Option<Rc<Value>> {
         match &conf.c {
             AstExpr(e) => match e.as_ref() {
