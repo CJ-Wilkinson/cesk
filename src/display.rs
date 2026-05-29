@@ -9,7 +9,14 @@ impl Display for Value {
             Self::IntV(x) => write!(f, "{}", x),
             Self::BoolV(b) => write!(f, "{}", b),
             Self::UnitV => write!(f, "()"),
-            Self::ArrayV(size, _) => write!(f, "Array(size: {})", size),
+            Self::ArrayV {
+                size,
+                start_of_array,
+            } => write!(
+                f,
+                "Array(size: {}, start_of_array: {})",
+                size, start_of_array
+            ),
             Self::AddrV(addr) => write!(f, "Addr({})", addr),
             // Self::ArrayV(vec) => {
             //     let mut s = String::new();

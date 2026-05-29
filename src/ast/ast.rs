@@ -67,11 +67,11 @@ pub enum Value {
     IntV(i32),
     BoolV(bool),
     UnitV,
-    ArrayV(
+    ArrayV {
         //Type, // Type of array
-        usize,   // Size of array
-        Address, // First address of array
-    ),
+        size: usize,
+        start_of_array: Address,
+    },
     AddrV(Address),
 }
 
@@ -81,8 +81,11 @@ impl Value {
             Value::IntV(_) => Type::IntT,
             Value::BoolV(_) => Type::BoolT,
             Value::UnitV => Type::UnitT,
-            Value::ArrayV(_, _) => todo!(), // TODO: array values need to store their type?
-            Value::AddrV(_) => Type::UnitT, // TODO: what type is an address?
+            Value::ArrayV {
+                size,
+                start_of_array,
+            } => todo!(), // TODO: array values need to store their type?
+            Value::AddrV(_) => Type::IntT, // TODO: what type is an address?
         }
     }
 }

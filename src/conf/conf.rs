@@ -96,8 +96,13 @@ impl Config {
                             self.k.clone(),
                         )),
                     },
-                    Decl { name: id, .. } => {
+                    Decl {
+                        name: id,
+                        typ,
+                        expr,
+                    } => {
                         // todo *** Need to figure out how we're handling types. Parser takes types as input
+                        // ! arrays need to unit initalize every element of the array
                         let addr = handler.get_address();
                         Self {
                             /* Introduce variable into environment */
@@ -244,7 +249,11 @@ impl Config {
                     // Get the first address
                     let addr = handler.get_address();
                     // Build the array handler value
-                    let array_ref = Value::ArrayV(exprs.len(), addr.clone());
+
+                    let array_ref = Value::ArrayV {
+                        size: exprs.len(),
+                        start_of_array: addr.clone(),
+                    };
                     // Get new store
                     let mut new_store = (*self.s).clone();
 
@@ -530,15 +539,40 @@ impl Config {
                 },
                 _ => panic!("Non-Boolean found in condition"),
             },
-            IndexK(id, k) => match self.e.get(id.as_ref()) {
-                Some(addr) => Self {
-                    c: AstExpr(Rc::new(Expr::val(Rc::new(AddrV(addr.clone()))))),
-                    e: self.e.clone(),
-                    s: self.s.clone(),
-                    k: k.clone(),
-                },
-                None => panic!("Undefined variable: {id}"),
-            },
+            IndexK(id, k) => {
+                if let Some(addr) = self.e.get(id.as_ref()) {
+                    if let Some(val) = self.s.get(addr) {
+                        if let Value::IntV(i) = v1.as_ref() {
+                            match Address::get_index_info(*i, val) {
+                                Ok(new_addr) => Self {
+                                    c: { AstExpr(Rc::new(Expr::val(Rc::new(AddrV(new_addr))))) },
+                                    e: self.e.clone(),
+                                    s: self.s.clone(),
+                                    k: k.clone(),
+                                },
+                                Err(_) => panic!("Invalid index"),
+                            }
+                        } else {
+                            panic!("Tried to index with something that isn't an integer")
+                        }
+                    } else {
+                        panic!("Address {} invalid: not found in store", addr)
+                    }
+                } else {
+                    panic!("Identifier {} not found in environment", id)
+                }
+
+                //Some(addr) => Self {
+                //    c: {
+                //        //AstExpr(Rc::new(Expr::val(Rc::new(AddrV(addr.clone())))))
+                //
+                //    }, // ! ADD OFFSET ! ! ! (and check size)
+                //    e: self.e.clone(),
+                //    s: self.s.clone(),
+                //    k: k.clone(),
+                //},
+                //None => panic!("Undefined variable: {id}"),
+            }
             FunK(_, _, _) => unreachable!("Expected return, found value"),
             Mt => {
                 if v1.get_type() == Type::IntT {
