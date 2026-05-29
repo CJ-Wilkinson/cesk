@@ -113,9 +113,14 @@ impl Config {
                                 Rc::new(new_env)
                             },
                             s: {
-                                let mut new_store = (*self.s).clone();
-                                new_store.insert(addr, Rc::new(Value::UnitV));
-                                Rc::new(new_store)
+                                match typ {
+                                    Type::ArrayT(_) => self.s.clone(),
+                                    _ => {
+                                        let mut new_store = (*self.s).clone();
+                                        new_store.insert(addr, Rc::new(Value::UnitV));
+                                        Rc::new(new_store)
+                                    }
+                                }
                             },
                             k: self.k.clone(),
                         }
