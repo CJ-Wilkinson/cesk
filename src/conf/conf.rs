@@ -32,7 +32,7 @@ pub struct Config {
 
 impl fmt::Display for Config {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "<{}, {:?}, {:?}, {:?}>", self.c, self.e, self.s, self.k)
+        writeln!(f, "<{}, {}, {}, {:?}>", self.c, self.e, self.s, self.k)
     }
 }
 
@@ -546,7 +546,7 @@ impl Config {
                 if let Some(addr) = self.e.get(id.as_ref()) {
                     if let Some(val) = self.s.get(addr) {
                         if let Value::IntV(i) = v1.as_ref() {
-                            match Address::get_index_info(*i, val) {
+                            match Address::get_index_info(*i, &val) {
                                 Ok(new_addr) => Self {
                                     c: { AstExpr(Rc::new(Expr::val(Rc::new(AddrV(new_addr))))) },
                                     e: self.e.clone(),
