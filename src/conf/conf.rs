@@ -543,27 +543,29 @@ impl Config {
                 _ => panic!("Non-Boolean found in condition"),
             },
             IndexK(id, k) => {
-                if let Some(addr) = self.e.get(id.as_ref()) {
-                    if let Some(val) = self.s.get(addr) {
-                        if let Value::IntV(i) = v1.as_ref() {
-                            match Address::get_index_info(*i, val) {
-                                Ok(new_addr) => Self {
-                                    c: { AstExpr(Rc::new(Expr::val(Rc::new(AddrV(new_addr))))) },
-                                    e: self.e.clone(),
-                                    s: self.s.clone(),
-                                    k: k.clone(),
-                                },
-                                Err(_) => panic!("Invalid index"),
-                            }
-                        } else {
-                            panic!("Tried to index with something that isn't an integer")
-                        }
-                    } else {
-                        panic!("Address {} invalid: not found in store", addr)
+                let addr = self.e.get(id.as_ref()).unwrap_or_else(|| panic!("Identifier {} not found in environment", id));
+                let val = self.s.get(addr).unwrap_or_else(|| panic!("Address {} invalid: not found in store", addr));
+                if let Value::IntV(i) = v1.as_ref() {
+                    match Address::get_index_info(*i, val) {
+                        Ok(new_addr) => Self {
+                            c: { AstExpr(Rc::new(Expr::val(Rc::new(AddrV(new_addr))))) },
+                            e: self.e.clone(),
+                            s: self.s.clone(),
+                            k: k.clone(),
+                        },
+                        Err(_) => panic!("Invalid index"),
                     }
                 } else {
-                    panic!("Identifier {} not found in environment", id)
+                    panic!("Tried to index with something that isn't an integer")
                 }
+                // if let Some(addr) = self.e.get(id.as_ref()) {
+                //     if let Some(val) = self.s.get(addr) {
+                //     } else {
+                //         panic!("Address {} invalid: not found in store", addr)
+                //     }
+                // } else {
+                //     panic!("Identifier {} not found in environment", id)
+                // }
 
                 //Some(addr) => Self {
                 //    c: {
