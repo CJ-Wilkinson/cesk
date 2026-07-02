@@ -1,7 +1,7 @@
 use super::address::Address;
 use crate::ast::*;
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter, Error};
+use std::fmt::{Display, Error, Formatter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Env(pub HashMap<Name, Address>);

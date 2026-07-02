@@ -1,8 +1,8 @@
 use super::address::Address;
 use crate::ast::*;
 use std::collections::HashMap;
+use std::fmt::{Display, Error, Formatter};
 use std::rc::Rc;
-use std::fmt::{Display, Formatter, Error};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Store(pub HashMap<Address, Rc<Value>>);
