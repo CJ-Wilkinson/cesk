@@ -562,8 +562,16 @@ impl Config {
                         panic!("Address {} invalid: not found in store", addr)
                     }
                 } else {
-                    panic!("Identifier {} not found in environment", id)
+                    panic!("Tried to index with something that isn't an integer")
                 }
+                // if let Some(addr) = self.e.get(id.as_ref()) {
+                //     if let Some(val) = self.s.get(addr) {
+                //     } else {
+                //         panic!("Address {} invalid: not found in store", addr)
+                //     }
+                // } else {
+                //     panic!("Identifier {} not found in environment", id)
+                // }
 
                 //Some(addr) => Self {
                 //    c: {
