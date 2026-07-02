@@ -3,7 +3,7 @@ use crate::parser::lexer::token::{Token, TokenLexeme, TokenTag};
 use TokenLexeme::*;
 use TokenTag::*;
 
-use std::rc::Rc;
+//use std::rc::Rc;
 
 use chumsky::error::Rich;
 use chumsky::pratt::{infix, left, none, prefix};
@@ -65,7 +65,7 @@ pub fn type_parser<'src>() -> impl Parser<'src, &'src [Token], Type, ParseError<
 
     scalar_type_parser()
         .then(array_suffix)
-        .map(|(base, array_depth)| (0..array_depth).fold(base, |ty, _| Type::ArrayT(Rc::new(ty))))
+        .map(|(base, array_depth)| (0..array_depth).fold(base, |ty, _| Type::ArrayT(Node::new(ty))))
 }
 
 pub fn literal_parser<'src>() -> impl Parser<'src, &'src [Token], Expr, ParseError<'src>> + Clone {
@@ -106,7 +106,7 @@ pub fn unit_literal_parser<'src>()
 -> impl Parser<'src, &'src [Token], Expr, ParseError<'src>> + Clone {
     expect_tag(LPAREN)
         .then_ignore(expect_tag(RPAREN))
-        .map(|_| Expr::val(Rc::new(Value::UnitV)))
+        .map(|_| Expr::val(Node::new(Value::UnitV)))
 }
 
 pub fn param_parser<'src>() -> impl Parser<'src, &'src [Token], Param, ParseError<'src>> + Clone {
@@ -182,7 +182,7 @@ where
         .then_ignore(expect_tag(RPAREN))
         .then(stmt)
         .map(|(((init, condition), update), body)| {
-            Stmt::for_d(init, condition, update, Rc::new(body))
+            Stmt::for_d(init, condition, update, Node::new(body))
         })
 }
 
@@ -199,7 +199,7 @@ where
         .then(stmt.clone())
         .then(expect_tag(ELSE).ignore_then(stmt.or_not()))
         .map(|((condition, then_branch), else_branch)| {
-            Stmt::if_(condition, then_branch.into(), else_branch.map(Rc::new))
+            Stmt::if_(condition, then_branch.into(), else_branch.map(Node::new))
         })
 }
 
@@ -231,7 +231,7 @@ where
 }
 
 pub fn assign_target_parser<'src>()
--> impl Parser<'src, &'src [Token], Rc<Expr>, ParseError<'src>> + Clone {
+-> impl Parser<'src, &'src [Token], Node<Expr>, ParseError<'src>> + Clone {
     name_parser()
         .then(
             expect_tag(LSQUARE)
@@ -240,8 +240,8 @@ pub fn assign_target_parser<'src>()
                 .or_not(),
         )
         .map(|(name, index)| match index {
-            Some(index) => Rc::new(Expr::index(name, index)),
-            None => Rc::new(Expr::var(name)),
+            Some(index) => Node::new(Expr::index(name, index)),
+            None => Node::new(Expr::var(name)),
         })
 }
 
@@ -280,7 +280,7 @@ where
     expect_tag(LCURLY)
         .ignore_then(stmt.repeated().collect::<Vec<_>>())
         .then_ignore(expect_tag(RCURLY))
-        .map(|stmts| Stmt::block(stmts.into_iter().map(Rc::new).collect()))
+        .map(|stmts| Stmt::block(stmts.into_iter().map(Node::new).collect()))
 }
 
 pub fn continue_stmt_parser<'src, P>(
@@ -308,7 +308,7 @@ Expressions
 
 enum AtomicSuffix {
     Call(Arguments),
-    Index(Rc<Expr>),
+    Index(Node<Expr>),
 }
 
 /*
@@ -321,33 +321,33 @@ highest:
 lowest
 */
 pub fn expression_parser<'src>()
--> impl Parser<'src, &'src [Token], Rc<Expr>, ParseError<'src>> + Clone {
+-> impl Parser<'src, &'src [Token], Node<Expr>, ParseError<'src>> + Clone {
     recursive(|expr| {
         let atom = atom_expr_parser(expr.clone());
 
         atom.pratt((
-            prefix(5, unary_op_parser(), |op, rhs: Rc<Expr>, _| {
-                Rc::new(Expr::unary_op(op, rhs))
+            prefix(5, unary_op_parser(), |op, rhs: Node<Expr>, _| {
+                Node::new(Expr::unary_op(op, rhs))
             }),
             infix(
                 left(4),
                 mul_div_op_parser(),
-                |lhs: Rc<Expr>, op, rhs: Rc<Expr>, _| Rc::new(Expr::binary_op(lhs, op, rhs)),
+                |lhs: Node<Expr>, op, rhs: Node<Expr>, _| Node::new(Expr::binary_op(lhs, op, rhs)),
             ),
             infix(
                 left(3),
                 add_sub_op_parser(),
-                |lhs: Rc<Expr>, op, rhs: Rc<Expr>, _| Rc::new(Expr::binary_op(lhs, op, rhs)),
+                |lhs: Node<Expr>, op, rhs: Node<Expr>, _| Node::new(Expr::binary_op(lhs, op, rhs)),
             ),
             infix(
                 none(2),
                 relational_op_parser(),
-                |lhs: Rc<Expr>, op, rhs: Rc<Expr>, _| Rc::new(Expr::binary_op(lhs, op, rhs)),
+                |lhs: Node<Expr>, op, rhs: Node<Expr>, _| Node::new(Expr::binary_op(lhs, op, rhs)),
             ),
             infix(
                 none(1),
                 equality_op_parser(),
-                |lhs: Rc<Expr>, op, rhs: Rc<Expr>, _| Rc::new(Expr::binary_op(lhs, op, rhs)),
+                |lhs: Node<Expr>, op, rhs: Node<Expr>, _| Node::new(Expr::binary_op(lhs, op, rhs)),
             ),
         ))
     })
@@ -357,7 +357,7 @@ pub fn arguments_parser<'src, P>(
     expr: P,
 ) -> impl Parser<'src, &'src [Token], Arguments, ParseError<'src>> + Clone
 where
-    P: Parser<'src, &'src [Token], Rc<Expr>, ParseError<'src>> + Clone,
+    P: Parser<'src, &'src [Token], Node<Expr>, ParseError<'src>> + Clone,
 {
     expect_tag(LPAREN)
         .ignore_then(
@@ -371,11 +371,11 @@ where
 
 pub fn atom_expr_parser<'src, P>(
     expr: P,
-) -> impl Parser<'src, &'src [Token], Rc<Expr>, ParseError<'src>> + Clone
+) -> impl Parser<'src, &'src [Token], Node<Expr>, ParseError<'src>> + Clone
 where
-    P: Parser<'src, &'src [Token], Rc<Expr>, ParseError<'src>> + Clone + 'src,
+    P: Parser<'src, &'src [Token], Node<Expr>, ParseError<'src>> + Clone + 'src,
 {
-    let literal = literal_parser().map(Rc::new);
+    let literal = literal_parser().map(Node::new);
 
     let name_like = name_parser()
         .then(
@@ -389,9 +389,9 @@ where
             .or_not(),
         )
         .map(|(name, suffix)| match suffix {
-            Some(AtomicSuffix::Call(args)) => Rc::new(Expr::call_name(name, args)),
-            Some(AtomicSuffix::Index(index)) => Rc::new(Expr::index(name, index)),
-            None => Rc::new(Expr::var(name)),
+            Some(AtomicSuffix::Call(args)) => Node::new(Expr::call_name(name, args)),
+            Some(AtomicSuffix::Index(index)) => Node::new(Expr::index(name, index)),
+            None => Node::new(Expr::var(name)),
         });
 
     let array_literal = expect_tag(LSQUARE)
@@ -401,7 +401,7 @@ where
                 .collect::<Vec<_>>(),
         )
         .then_ignore(expect_tag(RSQUARE))
-        .map(|elements| Rc::new(Expr::array(elements)));
+        .map(|elements| Node::new(Expr::array(elements)));
 
     let grouped = expect_tag(LPAREN)
         .ignore_then(expr.clone())
@@ -461,8 +461,8 @@ pub fn fun_parser<'src>() -> impl Parser<'src, &'src [Token], Fun, ParseError<'s
         .map(|(((typ, name), params), body)| Fun {
             typ,
             name,
-            params: Rc::new(params),
-            body: Rc::new(body),
+            params: Node::new(params),
+            body: Node::new(body),
         })
 }
 
@@ -475,8 +475,8 @@ pub fn main_fun_parser<'src>() -> impl Parser<'src, &'src [Token], Fun, ParseErr
         .map(|(_, body)| Fun {
             typ: Type::UnitT,
             name: "main".to_string(),
-            params: Rc::new(ParamList { params: Vec::new() }),
-            body: Rc::new(body),
+            params: Node::new(ParamList { params: Vec::new() }),
+            body: Node::new(body),
         })
 }
 

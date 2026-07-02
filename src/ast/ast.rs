@@ -1,8 +1,12 @@
+use std::cmp::{Eq, Ordering, PartialEq};
 use std::collections::BTreeMap;
+use std::hash::{Hash, Hasher};
 use std::iter::Iterator;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use crate::conf::parts::address::Address;
+
+use std::convert::From;
 
 /*
 Name ::= [a-zA-z][a-zA-Z0-9_]*
@@ -59,6 +63,57 @@ Block ::= '{' <Stmt>* '}'
 
 // #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 // pub struct Name(pub String);
+
+#[derive(Debug, Clone)]
+pub struct Node<T>(Arc<Mutex<T>>);
+
+impl<T> Node<T> {
+    pub fn ptr_eq(node1: &Self, node2: &Self) -> bool {
+        Arc::ptr_eq(&node1.0, &node2.0)
+    }
+    pub fn get_arc(&self) -> &Arc<Mutex<T>> {
+        &self.0
+    }
+    pub fn new(inner: T) -> Self {
+        Node(Arc::new(Mutex::new(inner)))
+    }
+}
+
+impl<T> PartialEq for Node<T> {
+    fn eq(&self, other: &Self) -> bool {
+        Node::ptr_eq(self, other)
+    }
+}
+
+impl<T> Eq for Node<T> {}
+
+impl<T> Hash for Node<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(self.get_arc()).hash(state);
+    }
+}
+
+impl<T> PartialOrd for Node<T> {
+    fn partial_cmp(&self, other: &Node<T>) -> Option<Ordering> {
+        let self_ptr = Arc::as_ptr(&self.0) as usize;
+        let other_ptr = Arc::as_ptr(&other.0) as usize;
+        self_ptr.partial_cmp(&other_ptr)
+    }
+}
+
+impl<T> Ord for Node<T> {
+    fn cmp(&self, other: &Node<T>) -> Ordering {
+        let self_ptr = Arc::as_ptr(&self.0) as usize;
+        let other_ptr = Arc::as_ptr(&other.0) as usize;
+        self_ptr.cmp(&other_ptr)
+    }
+}
+
+impl<T> From<T> for Node<T> {
+    fn from(inner: T) -> Self {
+        Node(Arc::new(Mutex::new(inner)))
+    }
+}
 
 pub type Name = String;
 
@@ -156,19 +211,19 @@ impl UOperation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash)]
 pub enum Expr {
     Val {
-        value: Rc<Value>,
+        value: Node<Value>,
     },
     UnaryOp {
         op: UOperation,
-        expr: Rc<Expr>,
+        expr: Node<Expr>,
     },
     BinaryOp {
-        lhs: Rc<Expr>,
+        lhs: Node<Expr>,
         op: Operation,
-        rhs: Rc<Expr>,
+        rhs: Node<Expr>,
     },
     Var {
         name: Name,
@@ -179,15 +234,15 @@ pub enum Expr {
     },
 
     Array {
-        elements: Vec<Rc<Expr>>,
+        elements: Vec<Node<Expr>>,
     },
     Index {
         array: Name,
-        index: Rc<Expr>,
+        index: Node<Expr>,
     },
     #[allow(dead_code)]
     CallRef {
-        fun: Rc<Fun>,
+        fun: Node<Fun>,
         args: Arguments,
     },
     //Neg(Rc<Expr>),
@@ -203,47 +258,47 @@ pub enum Type {
     IntT,
     BoolT,
     UnitT,
-    ArrayT(Rc<Type>),
+    ArrayT(Node<Type>),
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Hash)]
 pub enum Stmt {
     ForD {
-        init: Option<Rc<Expr>>,
-        condition: Rc<Expr>,
-        update: Option<Rc<Expr>>,
-        body: Rc<Stmt>,
+        init: Option<Node<Expr>>,
+        condition: Node<Expr>,
+        update: Option<Node<Expr>>,
+        body: Node<Stmt>,
     },
     If {
-        condition: Rc<Expr>,
-        then_branch: Rc<Stmt>,
-        else_branch: Option<Rc<Stmt>>,
+        condition: Node<Expr>,
+        then_branch: Node<Stmt>,
+        else_branch: Option<Node<Stmt>>,
     },
     Assign {
-        lhs: Rc<Expr>,
-        rhs: Rc<Expr>,
+        lhs: Node<Expr>,
+        rhs: Node<Expr>,
     },
     ExprStmt {
-        expr: Rc<Expr>,
+        expr: Node<Expr>,
     },
     Decl {
         typ: Type,
         name: Name,
-        expr: Option<Rc<Expr>>,
+        expr: Option<Node<Expr>>,
     },
     Return {
-        expr: Rc<Expr>,
+        expr: Node<Expr>,
     },
     Block {
-        stmts: Vec<Rc<Stmt>>,
+        stmts: Vec<Node<Stmt>>,
     },
     While {
-        condition: Rc<Expr>,
-        body: Rc<Stmt>,
+        condition: Node<Expr>,
+        body: Node<Stmt>,
     },
     Continue,
     Break,
-    //ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
+    //ForD(Option<Node<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
     //If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
     //DeclD(Type, Name, Option<Rc<Expr>>),
     //Assign(Rc<Expr>, Rc<Expr>),
@@ -258,7 +313,7 @@ pub enum Stmt {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Arguments {
-    pub args: Vec<Rc<Expr>>,
+    pub args: Vec<Node<Expr>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -276,8 +331,8 @@ pub struct Param {
 pub struct Fun {
     pub typ: Type,
     pub name: Name,
-    pub params: Rc<ParamList>,
-    pub body: Rc<Stmt>,
+    pub params: Node<ParamList>,
+    pub body: Node<Stmt>,
 }
 
 #[derive(Debug, Clone)]
@@ -292,7 +347,7 @@ impl Program {
             funs: BTreeMap::new(),
         }
     }
-    pub fn get_entry(&mut self) -> Result<Rc<Stmt>, &str> {
+    pub fn get_entry(&mut self) -> Result<Node<Stmt>, &str> {
         match self.funs.get("main") {
             Some(fun) => Ok(fun.body.clone()),
             None => Err("failed to get entry point"),
@@ -301,10 +356,10 @@ impl Program {
 }
 impl Stmt {
     pub fn for_d(
-        init: Option<Rc<Expr>>,
-        condition: Rc<Expr>,
-        update: Option<Rc<Expr>>,
-        body: Rc<Stmt>,
+        init: Option<Node<Expr>>,
+        condition: Node<Expr>,
+        update: Option<Node<Expr>>,
+        body: Node<Stmt>,
     ) -> Stmt {
         Stmt::ForD {
             init,
@@ -314,7 +369,11 @@ impl Stmt {
         }
     }
 
-    pub fn if_(condition: Rc<Expr>, then_branch: Rc<Stmt>, else_branch: Option<Rc<Stmt>>) -> Stmt {
+    pub fn if_(
+        condition: Node<Expr>,
+        then_branch: Node<Stmt>,
+        else_branch: Option<Node<Stmt>>,
+    ) -> Stmt {
         Stmt::If {
             condition,
             then_branch,
@@ -322,27 +381,27 @@ impl Stmt {
         }
     }
 
-    pub fn assign(lhs: Rc<Expr>, rhs: Rc<Expr>) -> Stmt {
+    pub fn assign(lhs: Node<Expr>, rhs: Node<Expr>) -> Stmt {
         Stmt::Assign { lhs, rhs }
     }
 
-    pub fn expr_stmt(expr: Rc<Expr>) -> Stmt {
+    pub fn expr_stmt(expr: Node<Expr>) -> Stmt {
         Stmt::ExprStmt { expr }
     }
 
-    pub fn decl(typ: Type, name: Name, expr: Option<Rc<Expr>>) -> Stmt {
+    pub fn decl(typ: Type, name: Name, expr: Option<Node<Expr>>) -> Stmt {
         Stmt::Decl { typ, name, expr }
     }
 
-    pub fn return_(expr: Rc<Expr>) -> Stmt {
+    pub fn return_(expr: Node<Expr>) -> Stmt {
         Stmt::Return { expr }
     }
 
-    pub fn block(stmts: Vec<Rc<Stmt>>) -> Stmt {
+    pub fn block(stmts: Vec<Node<Stmt>>) -> Stmt {
         Stmt::Block { stmts }
     }
 
-    pub fn while_(condition: Rc<Expr>, body: Rc<Stmt>) -> Stmt {
+    pub fn while_(condition: Node<Expr>, body: Node<Stmt>) -> Stmt {
         Stmt::While { condition, body }
     }
 
@@ -356,15 +415,15 @@ impl Stmt {
 }
 
 impl Expr {
-    pub fn val(value: Rc<Value>) -> Expr {
+    pub fn val(value: Node<Value>) -> Expr {
         Expr::Val { value }
     }
 
-    pub fn unary_op(op: UOperation, expr: Rc<Expr>) -> Expr {
+    pub fn unary_op(op: UOperation, expr: Node<Expr>) -> Expr {
         Expr::UnaryOp { op, expr }
     }
 
-    pub fn binary_op(lhs: Rc<Expr>, op: Operation, rhs: Rc<Expr>) -> Expr {
+    pub fn binary_op(lhs: Node<Expr>, op: Operation, rhs: Node<Expr>) -> Expr {
         Expr::BinaryOp { lhs, op, rhs }
     }
 
@@ -376,22 +435,22 @@ impl Expr {
         Expr::CallName { callee, args }
     }
 
-    pub fn array(elements: Vec<Rc<Expr>>) -> Expr {
+    pub fn array(elements: Vec<Node<Expr>>) -> Expr {
         Expr::Array { elements }
     }
 
-    pub fn index(array: Name, index: Rc<Expr>) -> Expr {
+    pub fn index(array: Name, index: Node<Expr>) -> Expr {
         Expr::Index { array, index }
     }
 
     #[allow(dead_code)]
-    pub fn call_ref(fun: Rc<Fun>, args: Arguments) -> Expr {
+    pub fn call_ref(fun: Node<Fun>, args: Arguments) -> Expr {
         Expr::CallRef { fun, args }
     }
 }
 
 impl Iterator for Stmt {
-    type Item = Rc<Stmt>;
+    type Item = Node<Stmt>;
     fn next(&mut self) -> Option<Self::Item> {
         match self {
             Self::Block { stmts } => {
