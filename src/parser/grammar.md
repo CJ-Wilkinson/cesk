@@ -71,13 +71,16 @@ Expr ::= Expr BinaryOp Expr
        | Id
        | Id Arguments
        | Id [ Expr ]
-       | [ ArgumentList? ]
+       | Alloc
        | ( Expr )
 
 
 Arguments ::= ( ArgumentList? )
 
 ArgumentList ::= Expr (, Expr)*
+
+
+Alloc ::= alloc < BaseType > ( Expr )
 
 
 Val ::= IntLiteral
