@@ -111,10 +111,8 @@ impl Traverse for Expr {
                     arg.traverse(v);
                 }
             }
-            Array { elements } => {
-                for elem in elements {
-                    elem.traverse(v)
-                }
+            Array { size } => {
+				size.traverse(v);
             }
             Index { array: _, index } => {
                 //name.traverse(v);
