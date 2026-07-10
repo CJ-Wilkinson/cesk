@@ -177,9 +177,13 @@ pub enum Expr {
         callee: Name,
         args: Arguments,
     },
-    Array {
-    	size: Rc<Expr>,	
+    ArrayAlloc {
+        size: Rc<Expr>,
     },
+    //todo add this back in later?
+    //ArrayLiteral {
+    //    elements: Vec<Rc<Expr>>,
+    //},
     Index {
         array: Name,
         index: Rc<Expr>,
@@ -358,9 +362,14 @@ impl Expr {
         Expr::CallName { callee, args }
     }
 
-    pub fn array(size: Rc<Expr>) -> Expr {
-        Expr::Array { size }
+    pub fn array_alloc(size: Rc<Expr>) -> Expr {
+        Expr::ArrayAlloc { size }
     }
+
+    // todo add this back later? Easy to desugar a literal array within the parser
+    //pub fn array_literal(elements: Vec<Rc<Expr>>) -> Expr {
+    //    Expr::ArrayLiteral { elements }
+    //}
 
     pub fn index(array: Name, index: Rc<Expr>) -> Expr {
         Expr::Index { array, index }

@@ -111,8 +111,8 @@ impl Traverse for Expr {
                     arg.traverse(v);
                 }
             }
-            Array { size } => {
-				size.traverse(v);
+            ArrayAlloc { size } => {
+                size.traverse(v);
             }
             Index { array: _, index } => {
                 //name.traverse(v);

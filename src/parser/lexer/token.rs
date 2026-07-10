@@ -45,6 +45,7 @@ pub enum TokenTag {
     FALSE, // false (lowercase )
 
     //keywords
+    ALLOC,    //    alloc
     CONTINUE, //    continue
     IF,       //    if
     ELSE,     //    else

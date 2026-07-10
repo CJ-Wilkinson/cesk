@@ -119,7 +119,7 @@ impl Visitor for GraphVizVisitor {
             Expr::Var { .. } => "Expr::Identifier".to_string(),
             Expr::CallName { .. } => "Expr::CallName".to_string(),
             Expr::CallRef { .. } => "Expr::CallRef".to_string(),
-            Expr::Array { .. } => "Expr::Array".to_string(),
+            Expr::ArrayAlloc { .. } => "Expr::Array".to_string(),
             Expr::Index { .. } => "Expr::Index".to_string(),
             //Expr::Neg { .. } => "Expr::Neg".to_string(),
             // Expr::Deref(..) => "Expr::Deref".to_string(),
