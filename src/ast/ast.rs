@@ -177,10 +177,13 @@ pub enum Expr {
         callee: Name,
         args: Arguments,
     },
-
-    Array {
-        elements: Vec<Rc<Expr>>,
+    ArrayAlloc {
+        size: Rc<Expr>,
     },
+    //todo add this back in later?
+    //ArrayLiteral {
+    //    elements: Vec<Rc<Expr>>,
+    //},
     Index {
         array: Name,
         index: Rc<Expr>,
@@ -190,12 +193,6 @@ pub enum Expr {
         fun: Rc<Fun>,
         args: Arguments,
     },
-    //Neg(Rc<Expr>),
-    //BinaryOp(Rc<Expr>, Operation, Rc<Expr>),
-    //UnaryOp(UOperation, Rc<Expr>),
-    //Var(Name),
-    //CallName(Name, Arguments),
-    //CallRef(Rc<Fun>, Arguments), // ! Change everything over\
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -243,17 +240,6 @@ pub enum Stmt {
     },
     Continue,
     Break,
-    //ForD(Option<Rc<Expr>>, Rc<Expr>, Option<Rc<Expr>>, Rc<Stmt>),
-    //If(Rc<Expr>, Rc<Stmt>, Option<Rc<Stmt>>),
-    //DeclD(Type, Name, Option<Rc<Expr>>),
-    //Assign(Rc<Expr>, Rc<Expr>),
-    //ExprStmt(Rc<Expr>),
-    //Decl(Name),
-    //Return(Rc<Expr>),
-    //Block(Vec<Rc<Stmt>>),
-    //While(Rc<Expr>, Rc<Stmt>),
-    //Continue,
-    //Break,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -376,9 +362,14 @@ impl Expr {
         Expr::CallName { callee, args }
     }
 
-    pub fn array(elements: Vec<Rc<Expr>>) -> Expr {
-        Expr::Array { elements }
+    pub fn array_alloc(size: Rc<Expr>) -> Expr {
+        Expr::ArrayAlloc { size }
     }
+
+    // todo add this back later? Easy to desugar a literal array within the parser
+    //pub fn array_literal(elements: Vec<Rc<Expr>>) -> Expr {
+    //    Expr::ArrayLiteral { elements }
+    //}
 
     pub fn index(array: Name, index: Rc<Expr>) -> Expr {
         Expr::Index { array, index }

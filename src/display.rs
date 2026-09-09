@@ -71,7 +71,7 @@ impl Display for Expr {
             Self::Var { name } => write!(f, "{}", name),
             Self::CallRef { fun, args } => write!(f, "{} ({:?})", fun, args),
             Self::CallName { callee, args } => write!(f, "{} ({:?})", callee, args),
-            Self::Array { elements } => write!(f, "[{:?}]", elements),
+            Self::ArrayAlloc { size } => write!(f, "[{:?}]", size),
             Self::Index { index, array } => write!(f, "{}[{}]", array, index),
             Self::UnaryOp { op, expr } => write!(f, "{}{}", op, expr),
             // Self::Deref(ex) => write!(f, "*{}", ex),  // ? Not needed?

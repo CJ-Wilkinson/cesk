@@ -126,7 +126,9 @@ fn keyword_or_identifier(s: &str) -> TokenTag {
         "unit" => TokenTag::UNIT,   // unit
         "true" => TokenTag::TRUE,   // true (lowercase)
         "false" => TokenTag::FALSE, // false (lowercase )
+
         //keywords
+        "alloc" => TokenTag::ALLOC,       //    alloc
         "continue" => TokenTag::CONTINUE, //    continue
         "if" => TokenTag::IF,             //    if
         "else" => TokenTag::ELSE,         //    else

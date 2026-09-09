@@ -58,7 +58,6 @@ pub fn scalar_type_parser<'src>() -> impl Parser<'src, &'src [Token], Type, Pars
 
 pub fn type_parser<'src>() -> impl Parser<'src, &'src [Token], Type, ParseError<'src>> + Clone {
     let array_suffix = expect_tag(LSQUARE)
-        .then(expression_parser())
         .then_ignore(expect_tag(RSQUARE))
         .repeated()
         .count();
@@ -394,20 +393,38 @@ where
             None => Rc::new(Expr::var(name)),
         });
 
-    let array_literal = expect_tag(LSQUARE)
-        .ignore_then(
-            expr.clone()
-                .separated_by(expect_tag(COMMA))
-                .collect::<Vec<_>>(),
+    //todo! Add this back later? Easy to desugar an array literal right here
+    //let array_literal = expect_tag(LSQUARE)
+    //    .ignore_then(
+    //        expr.clone()
+    //            .separated_by(expect_tag(COMMA))
+    //            .collect::<Vec<_>>(),
+    //    )
+    //    .then_ignore(expect_tag(RSQUARE))
+    //    .map(|elements| Rc::new(Expr::array_literal(elements)));
+
+    let array_alloc = expect_tag(ALLOC)
+        .ignore_then(expect_tag(LT))
+        .ignore_then(scalar_type_parser())
+        .then_ignore(expect_tag(GT))
+        .then(
+            expect_tag(LPAREN)
+                .ignore_then(expr.clone())
+                .then_ignore(expect_tag(RPAREN)),
         )
-        .then_ignore(expect_tag(RSQUARE))
-        .map(|elements| Rc::new(Expr::array(elements)));
+        .map(|(_element_type, size)| Rc::new(Expr::array_alloc(size)));
 
     let grouped = expect_tag(LPAREN)
         .ignore_then(expr.clone())
         .then_ignore(expect_tag(RPAREN));
 
-    choice((literal, name_like, array_literal, grouped))
+    choice((
+        literal,
+        name_like,
+        //array_literal,
+        array_alloc,
+        grouped,
+    ))
 }
 
 pub fn unary_op_parser<'src>()

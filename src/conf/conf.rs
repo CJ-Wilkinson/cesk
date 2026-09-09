@@ -251,41 +251,41 @@ impl Config {
                     s: self.s.clone(),
                     k: Rc::new(UOpK(*op, self.k.clone())),
                 },
-                Array { elements: exprs } => {
-                    // Get the first address
-                    let addr = handler.get_address();
-                    // Build the array handler value
-
-                    let array_ref = Value::ArrayV {
-                        size: exprs.len(),
-                        start_of_array: addr.clone(),
-                    };
-                    // Get new store
-                    let mut new_store = (*self.s).clone();
-
-                    // Bind the first item in array to addrss
-                    match exprs.first() {
-                        Some(expr) => {
-                            if let Val { value: v } = expr.as_ref() {
-                                new_store.insert(addr, v.clone());
-                            }
-                        }
-                        None => (),
-                    }
-                    for expr in exprs.iter().skip(1) {
-                        if let Val { value: v } = expr.as_ref() {
-                            new_store.insert(handler.get_address(), v.clone());
-                        }
-                    }
-                    // Make new environment
-                    // Place the handler in the control
-                    Self {
-                        c: AstExpr(Rc::new(Expr::val(Rc::new(array_ref)))),
-                        e: self.e.clone(),
-                        s: Rc::new(new_store),
-                        k: self.k.clone(),
-                    }
-                }
+//                 Array { elements: exprs } => {
+//                     // Get the first address
+//                     let addr = handler.get_address();
+//                     // Build the array handler value
+// 
+//                     let array_ref = Value::ArrayV {
+//                         size: exprs.len(),
+//                         start_of_array: addr.clone(),
+//                     };
+//                     // Get new store
+//                     let mut new_store = (*self.s).clone();
+// 
+//                     // Bind the first item in array to addrss
+//                     match exprs.first() {
+//                         Some(expr) => {
+//                             if let Val { value: v } = expr.as_ref() {
+//                                 new_store.insert(addr, v.clone());
+//                             }
+//                         }
+//                         None => (),
+//                     }
+//                     for expr in exprs.iter().skip(1) {
+//                         if let Val { value: v } = expr.as_ref() {
+//                             new_store.insert(handler.get_address(), v.clone());
+//                         }
+//                     }
+//                     // Make new environment
+//                     // Place the handler in the control
+//                     Self {
+//                         c: AstExpr(Rc::new(Expr::val(Rc::new(array_ref)))),
+//                         e: self.e.clone(),
+//                         s: Rc::new(new_store),
+//                         k: self.k.clone(),
+//                     }
+//                 }
                 Var { name: id } => match self.e.get(id) {
                     Some(addr) => Self {
                         c: AstExpr(Rc::new(Expr::val(Rc::new(AddrV(addr.clone()))))),
@@ -380,6 +380,7 @@ impl Config {
                         },
                     }
                 }
+                _ => todo!(),
             },
         }
     }
