@@ -28,7 +28,7 @@
 
 ## 0. Abstract
 
-This paper presents an abstract interpreter using a memory model based on the CESK machine by Might et al. We have developed a C-like language to facilitate the exploration of an imperative CESK machine through call-by-value λ-calculus encodings. We also discuss our CESK machine's implications of memory safety in array indexing.  We demonstrate that our techinques for deriving a lanugage can be scaled to larger language constructs, such as classes or anonymous functions. Included is a compilation of relevant work and tools necessary to reproduce our work.
+This paper presents an abstract interpreter using a memory model based on the CESK machine by Might et al. We have developed a C-like language to facilitate the exploration of an imperative CESK machine through call-by-value λ-calculus encodings. We also discuss our CESK machine's implications of memory safety in array indexing.  We demonstrate that our techniques for deriving a language can be scaled to larger language constructs, such as classes or anonymous functions. Included is a compilation of relevant work and tools necessary to reproduce our work.
 
 ---------------------------------------------------------
 Imperative implementation of Might et al.'s CESK machine.
