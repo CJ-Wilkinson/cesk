@@ -7,7 +7,9 @@
     4. memory safety
     5. full description of our CESK
 
-1. meat and potatoes
+1. introduction
+
+2. background
     - Transition rule
         - what is it
     - $\lambda$-calculus definition
@@ -15,8 +17,20 @@
     - Standard CESK
     - Description of our language
     - How ours is different
-2. Type checking
-3. Appendix
+    - LBA vs Turing machines
+
+3. contributions
+    -
+
+4. methodology
+
+5. results
+
+6. conclusion (pretty short)
+    - claims about what you demonstrated
+    - mention what you expect future work to look like
+
+7. Appendix
     - Full definition of CESK machine
     - Example derivation from a language construct into a transition rule
     - Full set of transition rules
@@ -28,7 +42,7 @@
 
 ## 0. Abstract
 
-This paper presents an abstract interpreter using a memory model based on the CESK machine by Might et al. We have developed a C-like language to facilitate the exploration of an imperative CESK machine through call-by-value λ-calculus encodings. We also discuss our CESK machine's implications of memory safety in array indexing.  We demonstrate that our techniques for deriving a language can be scaled to larger language constructs, such as classes or anonymous functions. Included is a compilation of relevant work and tools necessary to reproduce our work.
+This paper presents an abstract interpreter using a memory model based on the CESK machine. We have developed a C-like language to facilitate the exploration of an imperative CESK machine through call-by-value λ-calculus encodings. We also discuss our CESK machine's implications of memory safety in array indexing.  We demonstrate that our techniques for deriving a language can be scaled to larger language constructs, such as classes or anonymous functions.Included is a compilation of relevant work and tools necessary to reproduce our work.
 
 ---------------------------------------------------------
 Imperative implementation of Might et al.'s CESK machine.
