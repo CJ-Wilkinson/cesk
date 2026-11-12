@@ -45,7 +45,7 @@
 This paper presents an interpreter using a memory model based on the CESK machine. We have developed a C-like language to facilitate the exploration of an imperative CESK machine through call-by-value λ-calculus encodings. We also discuss our CESK machine's implications of memory safety with array indexing and limited memory. We demonstrate that our techniques for deriving a language can be scaled to larger language constructs, such as classes or anonymous functions.
 
 
-This one vvvv
+This one vvvv \
 The CESK machine is an abstract machine that defines a program’s meaning as a sequence of small, explicit steps over its components. We present an adaptation of the CESK machine to a C-like imperative language with mutable variables, functions, conditionals, loops, and arrays. Each language construct is given as a set of transition rules, implemented as a concrete executable interpreter that can display every intermediate machine state. All memory is accessed through the machine’s explicit store, so array values carry their bounds and out-of-range accesses halt the machine rather than reading arbitrary memory. We discuss how this rule-derivation approach could extend to larger language features and release our implementation and full rule set.
 
 
